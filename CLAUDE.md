@@ -70,11 +70,7 @@ Deben ejecutarse en orden — cada uno alimenta al siguiente:
 3. `markov1.ipynb` → construye 12 matrices de transición mensuales desde `aves_procesado_markov.csv`
 4. `ML1–ML5.ipynb` → entrenan clasificadores sobre `hmm.csv` para predecir `target_cell`
 
----
-
-## Convención train/test split
-
-Split **por animal**: primer 80% de registros de cada ave (orden cronológico) → train; último 20% → test. Evita data leakage temporal. El `LabelEncoder` se ajusta solo sobre celdas de train; las filas de test con celdas no vistas se descartan antes de evaluar.
+Split **por animal**: primer 80% cronológico → train, último 20% → test. El `LabelEncoder` se ajusta solo sobre celdas de train; las filas de test con celdas no vistas se descartan.
 
 ---
 
@@ -84,13 +80,11 @@ Split **por animal**: primer 80% de registros de cada ave (orden cronológico) �
 
 | Versión | Cambio principal | Migración Top-1 | Estacionario Top-1 | Global Top-1 |
 |---------|-----------------|-----------------|-------------------|--------------|
-| ML1 | Baseline: mes + día semana + fase lunar | 47.9%* | 87.2%* | 80.3% |
+| ML1 | Baseline: mes + día semana + fase lunar | — | — | 80.3% |
 | ML2 | Quita fase lunar | — | — | 80.8% |
 | ML3 | Solo semana del año | 47.9% | 87.2% | 81.1% |
 | ML4 | Modelos separados por estado + lag-1 | 44.5% | 89.2% | 82.3% |
 | **ML5** | +lag-2, racha, episodio, dist. latitudinal, delta_bearing | **43.4%** | **89.8%** | **82.9%** |
-
-*Calculado a posteriori sobre ML3.
 
 **ML5 es la mejor versión** en todos los métricas. El análisis de la evolución ML3→ML4→ML5 es parte central del trabajo (objetivo de comparar qué mejora y qué no).
 
@@ -120,12 +114,6 @@ Hábitat/tiempo: veg_low, veg_high, semana_num
 |--------|---------|--------|---------|
 | Migración | 32 km | 62% | 78% |
 | Estacionario | 5 km | 98.6% | 98.8% |
-
----
-
-## Grid espacial
-
-Coordenadas discretizadas en celdas de 0,5°×0,5°. `cell_id` = `"grid_x_grid_y"`. ~850-950 celdas únicas en train según el modelo. El modelo Markov usa 1.253 celdas en el dataset completo.
 
 ---
 
