@@ -184,8 +184,8 @@ El efecto cuantificable del bug `lengths=`: la duración media del estado estaci
    - Coincide con el ciclo real de *Larus fuscus*: migración S→N en primavera y N→S en otoño tras la cría.
 
 3. **Dinámica temporal físicamente realista**:
-   - Estacionario persistente (p_diag 0,917 → duración media 12 días). Coherente con estancias de semanas en cría/invernada.
-   - Migración menos persistente (p_diag 0,706 → duración media 3,4 días). Episodios cortos de vuelo con paradas.
+   - Estacionario persistente (p_diag 0,917 → duración media del modelo 12 días). Migración menos persistente (p_diag 0,706 → 3,4 días).
+   - **Interpretación correcta de "12 días"**: es la longitud media de una racha ININTERRUMPIDA de días consecutivos estacionarios dentro de una trayectoria, NO la duración de la temporada de cría/invernada. La distribución empírica de rachas es muy asimétrica (ver caveat 6 abajo).
 
 4. **Coherencia inter-anual en ejemplos individuales** (ave 91916A, 2026 días):
    - El patrón de migración en April+Sep/Oct se repite año tras año de manera consistente.
@@ -210,6 +210,24 @@ El efecto cuantificable del bug `lengths=`: la duración media del estado estaci
 4. **~14–21 % de días en "migración" incluso en verano** (junio-agosto). Durante la cría, las aves no migran — lo que el modelo llama "migración" en esos meses son commutes activos de larga distancia (p. ej. viajes desde la colonia a zonas de pesca). No es un bug; es la consecuencia de tener solo 2 estados.
 
 5. **El HMM2 no genera `grid_x/grid_y/cell_id/target_cell`** (las columnas que usa `markov1.ipynb` y los modelos ML). Solo produce `step_length`, `bearing`, `turning_angle`, `estado_hmm`. Esas columnas adicionales las genera `HMM.ipynb` y pertenecen al pipeline de Markov/ML, no al O3 puro.
+
+6. **Los "12 días" del modelo ≠ la duración de la temporada sedentaria**. La distribución empírica real de rachas estacionarias (calculada sobre `hmm2.csv`) es muy asimétrica:
+
+   | Percentil | Longitud de racha |
+   |---|---|
+   | q25 | 2 días |
+   | **q50 (mediana)** | **4 días** |
+   | q75 | 9 días |
+   | q90 | 21 días |
+   | q99 | 97 días |
+   | máximo | 482 días |
+
+   - El 20 % de las rachas son de **1 solo día**.
+   - Solo el 7 % son ≥ 30 días; solo el 3 % ≥ 60 días.
+   - El máximo (482 días) corresponde a un ave con GPS que casi no se mueve durante más de un año.
+   - La media de 9,8 días (fórmula del modelo: 12 días) está inflada por la cola derecha de rachas largas.
+
+   **Por qué son tan cortas**: durante la temporada de cría (90 días en N. Europa), el ave hace viajes diarios de alimentación. Los que superan ~20–25 km se etiquetan como "migración" y rompen la racha. Un periodo real de 90 días en la colonia puede aparecer como muchas rachas de 4–12 días separadas por días de "commute" etiquetados como migración. La causa es la limitación de 2 estados con resolución diaria (ver caveat 1).
 
 ---
 
