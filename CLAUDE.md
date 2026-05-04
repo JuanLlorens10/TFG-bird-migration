@@ -54,11 +54,12 @@ data/
   raw/migration_original.csv          # GPS bruto: 126 gaviotas, 2009-2015, ~90k registros
   processed/
     aves_procesado_markov.csv         # Una localización/día/ave (~22k filas) → usado por Markov
-    hmm.csv                           # Extiende el anterior con features de movimiento y etiqueta HMM
+    hmm.csv                           # Producido por HMM.ipynb (original); extiende el anterior
+    hmm2.csv                          # Producido por HMM2.ipynb (mejorado); mismas columnas base
     hmm_wind.csv                      # Extiende hmm.csv con viento ERA5 a 850 hPa → usado por ML6
 ```
 
-`hmm.csv` añade sobre `aves_procesado_markov.csv`: `step_length`, `bearing`, `turning_angle`, `estado_hmm` (0=migración, 1=estacionario), `grid_x/grid_y/cell_id` (discretización 0,5°×0,5°), `target_cell` (celda objetivo del día siguiente), `next_lat/next_lon`.
+`hmm.csv` y `hmm2.csv` añaden sobre `aves_procesado_markov.csv`: `step_length` (km), `bearing` (grados), `turning_angle` (radianes), `estado_hmm` (0=migración, 1=estacionario). `hmm.csv` añade además `grid_x/grid_y/cell_id/target_cell/next_lat/next_lon` (columnas de Markov/ML). `hmm2.csv` solo añade las 4 columnas HMM, sin las de Markov.
 
 `hmm_wind.csv` añade sobre `hmm.csv`: `u_wind`, `v_wind`, `wind_speed`, `tail_wind`, `cross_wind` (componentes de viento ERA5 a 850 hPa).
 
@@ -69,12 +70,63 @@ data/
 Deben ejecutarse en orden — cada uno alimenta al siguiente:
 
 1. `dataExploration1.ipynb` → limpieza del GPS bruto, produce `aves_procesado_markov.csv`
-2. `HMM.ipynb` → ajusta HMM gaussiano, añade features de movimiento y etiquetas de estado, produce `hmm.csv`
+2. `HMM.ipynb` → HMM original (referencia); produce `hmm.csv` con features de movimiento + etiqueta HMM + columnas Markov/ML
+   - `HMM2.ipynb` → HMM mejorado (versión recomendada); produce `hmm2.csv` solo con step/bearing/turning/estado_hmm
 3. `markov1.ipynb` → construye 12 matrices de transición mensuales desde `aves_procesado_markov.csv`
 4. `ML1–ML5.ipynb` → entrenan clasificadores sobre `hmm.csv` para predecir `target_cell`
 5. `ML6.ipynb` → igual que ML5 pero sobre `hmm_wind.csv`, añade 5 features de viento ERA5
 
 Split **por animal**: primer 80% cronológico → train, último 20% → test. El `LabelEncoder` se ajusta solo sobre celdas de train; las filas de test con celdas no vistas se descartan.
+
+---
+
+## Estado actual — O3: HMM (`HMM2.ipynb`)
+
+### Dos implementaciones: HMM1 vs HMM2
+
+| Aspecto | HMM1 (`HMM.ipynb`) | HMM2 (`HMM2.ipynb`) |
+|---|---|---|
+| Features | `step_length`, `turning_angle`, `veg_low`, `veg_high` | `step_length` (km, bruto), `cos(turning_angle)` |
+| Transformación | Ninguna | Ninguna (tampoco log ni scaler) |
+| `covariance_type` | `'diag'` | `'diag'` |
+| `lengths=` en `.fit()` | **No** — bug crítico | **Sí** — por `trayectoria_id` |
+| Inicializaciones | 1 (`random_state=42`) | 15 seeds; se guarda la mejor |
+| Asignación 0/1 | Manual post-hoc | Automática por `means_[:, 0]` |
+| Validación | Sin análisis de dinámica | Transmat, duración, patrón estacional |
+
+### Resultados de HMM2 (v2, valores reales)
+
+| Métrica | Migración (0) | Estacionario (1) |
+|---|---|---|
+| n días | 4 476 (21,2 %) | 16 605 (78,8 %) |
+| Media `step_length` | **129,6 km** | **4,1 km** |
+| Mediana `step_length` | 43,6 km | 1,7 km |
+| % días con step > 100 km | 27,6 % | 0,0 % |
+| % días con step < 10 km | 0,6 % | 85,1 % |
+| Persistencia diagonal | 0,706 | **0,917** |
+| Duración media (días) | 3,4 | **12,1** |
+| % migración en abril | 34,0 % | — |
+| % migración en septiembre | 31,9 % | — |
+| % migración en enero | 7,1 % | — |
+| Estabilidad (15 inits) | todos convergen al mismo LL = −113 068,9 |
+
+HMM1: media migración 119,87 km, media estacionario 3,90 km (similares en emisiones, pero transmat y duración no son confiables por el bug de `lengths`).
+
+### Decisiones de diseño clave (HMM2)
+
+1. **`lengths=` por `trayectoria_id`** — imprescindible; sin él el HMM modela ~480 transiciones espurias entre aves distintas.
+2. **`step_length` en bruto, sin `log` ni `StandardScaler`** — la distribución tiene una bimodalidad natural (pico 0–5 km / cola 50–200+ km) que es la señal más fuerte del problema. Escalar la diluye (demostrado en la v1 fallida, que se latchó al eje de `cos(turning_angle)` en su lugar).
+3. **`cos(turning_angle)` en lugar de `turning_angle` raw** — resuelve la circularidad (−π y +π son el mismo ángulo) sin necesitar von Mises.
+4. **`covariance_type='diag'`** — con varianzas tan dispares (step ~10⁴ km² vs cos ~0,5), full es inestable.
+5. **Sin `veg_low/veg_high`** — son features de hábitat, no de comportamiento. La profesora pidió "velocidad y rumbo".
+
+### Limitación conocida del modelo de 2 estados
+
+El estado "migración" captura tanto **vuelos de larga distancia** (step > 100 km, 28 % de los días) como **commutes activos intra-residencia** (step 20–100 km, 72 % de los días). Con `n_components=2` (restricción de la profesora) es imposible separar ambos. Para distinguirlos haría falta un tercer estado. Esta limitación explica:
+- Mediana en migración de 43 km (no 100+).
+- `|turning_angle|` medio en migración de 1,52 rad (~87°), mayor de lo esperado para vuelo recto.
+- ~14–21 % de días en "migración" incluso en verano (temporada de cría).
+- 31 % de las rachas de migración son de 1 solo día.
 
 ---
 
@@ -127,6 +179,24 @@ Hábitat/tiempo: veg_low, veg_high, semana_num
 [todas las de ML5]
 Viento ERA5:    u_wind, v_wind, wind_speed, tail_wind, cross_wind
 ```
+
+---
+
+## Registro de conversación (conversation_log.md)
+
+Al final de **cada respuesta relacionada con el proyecto** (análisis de datos, modelos ML, visualización, notebooks, datos, resultados), añadir una entrada en `conversation_log.md`. **No registrar** preguntas sobre el funcionamiento de Claude Code (modos, skills, atajos, configuración, etc.).
+
+```markdown
+## [YYYY-MM-DD HH:MM] Prompt
+<texto exacto del prompt del usuario>
+
+### Resumen de respuesta
+<resumen que incluya: qué archivos se editaron/crearon, qué secciones concretas se modificaron, y con qué propósito>
+
+---
+```
+
+El archivo está en `/home/jllorens/Desktop/TFG/version2/conversation_log.md`.
 
 ---
 
