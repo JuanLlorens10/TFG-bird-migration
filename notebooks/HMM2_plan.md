@@ -125,33 +125,37 @@ Criterio: coherencia del comportamiento detectado.
 
 | Métrica | HMM1 (real) | HMM2 v2 (real) |
 |---|---|---|
-| Media `step_length` migración (km) | 119,87 | **129,57** |
-| Media `step_length` estacionario (km) | 3,90 | **4,09** |
-| Distribución mig/est | no medido | **21,2 % / 78,8 %** |
-| Persistencia diagonal migración | no medido | **0,706** |
-| Persistencia diagonal estacionario | no medido | **0,917** |
-| Duración media migración (días) | no medido | **3,41** |
-| Duración media estacionario (días) | no medido | **12,10** |
-| % migración en enero | no medido | **7,1 %** |
-| % migración en abril | no medido | **34,0 %** |
-| % migración en septiembre | no medido | **31,9 %** |
+| Media `step_length` migración (km) | 126,07 | **129,57** |
+| Media `step_length` estacionario (km) | 3,95 | **4,09** |
+| Distribución mig/est | 21,9 % / 78,1 % | **21,2 % / 78,8 %** |
+| Persistencia diagonal migración | 0,706 ⚠️ sesgado | **0,706** |
+| Persistencia diagonal estacionario | 0,912 ⚠️ sesgado | **0,917** |
+| Duración media migración (días) | 3,41 ⚠️ sesgado | **3,41** |
+| Duración media estacionario (días) | 11,31 ⚠️ sesgado | **12,10** |
+| % migración en enero | 7,6 % | **7,1 %** |
+| % migración en abril | 34,3 % | **34,0 %** |
+| % migración en septiembre | 32,5 % | **31,9 %** |
+| **Concordancia día a día vs HMM2** | **98,94 %** | — |
+| **Días que difieren** | **223 de 20 964** | — |
 | Tratamiento del rumbo | `turning_angle` Gaussian circular | `cos(turning_angle)` no circular |
 | Separación de secuencias | **No** (~480 transiciones espurias) | **Sí** — `lengths=` por `trayectoria_id` |
 | Robustez a la semilla | frágil (1 init, etiquetado manual) | estable (15 inits convergen al mismo LL) |
 | Alineación con enunciado | mete vegetación (hábitat) | solo velocidad y rumbo |
 
-HMM1 consigue una separación de emisiones parecida a HMM2 porque `step_length` domina la verosimilitud igualmente, pero la **matriz de transición y toda la dinámica temporal son infiables** al no usar `lengths=`. HMM2 aporta valor principalmente en la dinámica correcta y en la ausencia de sesgo de hábitat.
+**Los tres modelos coinciden en el 99 % de los casos.** Los 223 días en que HMM1 y HMM2 difieren tienen `step_length` exclusivamente entre 0 y 25 km (media 17,5 km, mediana 19 km). Ningún desacuerdo tiene step > 50 km: los modelos son idénticos en los casos claros y solo discrepan en la **franja ambigua 10–25 km**. HMM1 etiqueta 182 de esos días como migración; HMM2 los clasifica como estacionario, lo cual es más coherente (una velocidad de 15–20 km/día es commute, no migración de larga distancia).
+
+El efecto cuantificable del bug `lengths=`: la duración media del estado estacionario baja de **12,10 días (HMM2) a 11,31 días (HMM1)**, una reducción del 6,5 % causada por las ~480 transiciones espurias entre aves que interrumpen artificialmente las rachas sedentarias.
 
 ---
 
 ## Fase 4 — Justificación
 
 **Por qué HMM2 es mejor**:
-1. **Matriz de transición correcta**. `lengths=` modela 480 secuencias separadas en lugar de una sola cadena pegada artificialmente.
-2. **Sin sesgo de hábitat**. Solo `step_length` y `cos(turning_angle)` — fiel al enunciado de la profesora ("velocidad y rumbo").
-3. **Tratamiento correcto del rumbo circular** con `cos(turning_angle)`.
-4. **Robustez**. 15 inicializaciones convergen al mismo óptimo (LL = −113 068,9). Asignación automática de 0/1 invariante al `random_state`.
-5. **Validación de la dinámica** que HMM1 omite completamente.
+1. **Matriz de transición correcta**. `lengths=` modela 480 secuencias separadas. El efecto medible: la duración del estado estacionario pasa de 11,3 días (HMM1, sesgado) a 12,1 días (HMM2, correcto).
+2. **Decisiones más correctas en la frontera**. Los 223 días en que HMM1 y HMM2 discrepan tienen step 10–25 km; HMM1 etiqueta 182 de ellos como migración y HMM2 como estacionario. A esas velocidades (commute diario) HMM2 toma la decisión más coherente físicamente.
+3. **Sin sesgo de hábitat**. Solo `step_length` y `cos(turning_angle)` — fiel al enunciado de la profesora ("velocidad y rumbo").
+4. **Tratamiento correcto del rumbo circular** con `cos(turning_angle)`.
+5. **Robustez**. 15 inicializaciones convergen al mismo óptimo (LL = −113 068,9). Asignación automática de 0/1 invariante al `random_state`.
 
 **En qué falla HMM1**:
 - Bug de `lengths` → matriz de transición y dinámica temporal sesgadas por ~480 transiciones inventadas.
@@ -209,14 +213,25 @@ HMM1 consigue una separación de emisiones parecida a HMM2 porque `step_length` 
 
 ---
 
-### Veredicto
+### Veredicto global (los tres modelos)
 
-Los resultados son **coherentes y correctos** para lo que un HMM Gaussian de 2 estados puede capturar. La interpretación más precisa de los estados es:
+| | HMM1 | HMM2 | HMM3 |
+|---|---|---|---|
+| Acuerdo con HMM2 | **98,94 %** | — | **98,99 %** |
+| Días discrepantes | 223 (step 10–25 km) | — | 212 (step 10–25 km) |
+| Dirección del sesgo | +182 días en migración | **referencia** | +150 días en migración |
+| Duración estacionario | 11,3 d ⚠️ | **12,1 d** | 12,0 d |
+| Sesgo estacional | ninguno extra | **referencia** | +1,9 pp en junio |
+| Metodología correcta | ❌ | ✅ | ✅ parcial |
+
+Los tres modelos son **funcionalmente equivalentes para los casos claros** (step < 10 km o step > 50 km, que representan el 99 % de los datos). Solo difieren en la **franja 10–25 km**, donde el paso es ambiguo entre commute activo y forrajeo. HMM1 y HMM3 son sistemáticamente más "agresivos" en etiquetar esos días como migración; HMM2 es más conservador — y esa conservación está justificada porque 15–20 km/día no es velocidad de migración.
+
+**Conclusión final**: HMM2 es el mejor por criterios cuantificables (transmat correcta, decisiones más coherentes en la frontera, sin sesgo estacional), no solo por pureza teórica. La diferencia no es dramática en los agregados, pero es real y medible.
+
+La interpretación precisa de los estados en cualquiera de los tres modelos es:
 
 - `estado_hmm = 0` → **"día activo"** (movimiento ≥ ~20 km): incluye vuelos migratorios reales Y commutes activos largos.
 - `estado_hmm = 1` → **"día sedentario"** (movimiento < ~25 km): reposo en cría/invernada, forrajeo local.
-
-Esa distinción es útil y físicamente significativa aunque no sea exactamente "migración" vs "descanso" en su sentido más estricto. Para el TFG, esta matización —junto con la demostración cuantitativa de las limitaciones del modelo— es exactamente el tipo de análisis que la profesora valora.
 
 ---
 
