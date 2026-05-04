@@ -220,16 +220,64 @@ Esa distinción es útil y físicamente significativa aunque no sea exactamente 
 
 ---
 
+---
+
+## Fase 6 — Experimento HMM3: ¿qué ocurre al añadir `veg_low` y `veg_high`?
+
+### Diseño del experimento
+
+`notebooks/HMM3.ipynb` es una copia exacta de HMM2 con una única diferencia: añade `veg_low` y `veg_high` como features observadas (4 features en lugar de 2). Sin `StandardScaler` ni ningún otro cambio.
+
+**Predicción a priori**: con `step_length` en km (varianza ~10⁴) y vegetación en [0, 1] (varianza ~0,1), la verosimilitud Gaussian estará dominada por la velocidad. Esperamos que los estados queden casi idénticos a los de HMM2.
+
+### Resultados (valores reales)
+
+| Métrica | HMM2 (sin veg) | HMM3 (con veg) | Δ |
+|---|---|---|---|
+| Media step migración (km) | 129,57 | 125,84 | −3 |
+| Media step estacionario (km) | 4,09 | 4,00 | ≈0 |
+| % días migración | 21,2 % | 21,9 % | +0,7 pp |
+| Persistencia diag. estacionario | 0,917 | 0,917 | 0 |
+| **Concordancia día a día** | — | **98,99 %** | — |
+| Días que difieren | — | 212 de 21 081 | — |
+| Δ % migración en verano (jun-ago) | — | +1,2 pp | — |
+
+**Medias de vegetación por estado en HMM3**:
+
+| Estado | veg_low | veg_high |
+|---|---|---|
+| Migración | 0,16 | 0,33 |
+| Estacionario | 0,22 | 0,33 |
+
+`veg_high` es idéntico (0,33 en ambos). `veg_low` difiere 0,06 — diferencia marginal. La vegetación **no discrimina entre estados**.
+
+### Conclusiones del experimento
+
+1. **La predicción a priori se confirma**: 99 % de acuerdo entre HMM2 y HMM3. La vegetación es un ruido de bajo peso porque su varianza (~0,1) es despreciable frente a `step_length` (~10⁴ km²). El motor de la separación es únicamente la velocidad.
+
+2. **Añadir vegetación no mejora — introduce un sesgo leve**: el +0,7 pp global de migración se concentra en verano (+1,2 pp en jun-ago), que es temporada de cría cuando no debería haber migración real. El HMM3 etiqueta más días como "migración" en los meses equivocados.
+
+3. **El fallo de HMM1 no era la vegetación**: el HMM1 original también incluía `veg_low/veg_high` pero producía resultados parecidos en separación de estados. Esto demuestra que el verdadero bug de HMM1 era no pasar `lengths=`, no la vegetación. Si arreglas solo ese bug y mantienes la vegetación (que es exactamente HMM3), los resultados son prácticamente los mismos que HMM2.
+
+4. **HMM2 sigue siendo la versión recomendada**: resultados equivalentes, sin el sesgo de hábitat, más fiel al enunciado de la profesora ("velocidad y rumbo").
+
+5. **Valor para el TFG**: este experimento permite justificar cuantitativamente la decisión de excluir la vegetación. No es una afirmación teórica ("la vegetación es hábitat, no comportamiento") sino una prueba empírica con números concretos.
+
+---
+
 ## Implementación
 
-`notebooks/HMM2.ipynb`. No se toca `HMM.ipynb` para conservarlo como referencia.
+- `notebooks/HMM2.ipynb` — implementación recomendada (sin vegetación).
+- `notebooks/HMM3.ipynb` — variante experimental (con vegetación); no se toca `HMM.ipynb` para conservarlo como referencia.
 
 ## Archivos relevantes
 
 - `notebooks/dataExploration1.ipynb` — fuente del CSV limpio.
 - `data/processed/aves_procesado_markov.csv` — entrada del HMM.
-- `notebooks/HMM.ipynb` — implementación a comparar (HMM1).
-- `notebooks/HMM2.ipynb` — implementación propuesta.
+- `notebooks/HMM.ipynb` — implementación original (HMM1, referencia).
+- `notebooks/HMM2.ipynb` — implementación recomendada (sin vegetación).
+- `notebooks/HMM3.ipynb` — variante con vegetación.
 - `data/processed/hmm.csv` — output de HMM1.
 - `data/processed/hmm2.csv` — output de HMM2.
+- `data/processed/hmm3.csv` — output de HMM3.
 - `CLAUDE.md` — fija la convención `0 = migración, 1 = estacionario`.

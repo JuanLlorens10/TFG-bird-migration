@@ -261,3 +261,6 @@ Guarda esta nueva información en claude.md
 - Data layout: añadido `hmm3.csv`.
 
 ---
+## [2026-05-04 09:40] Prompt
+actualiza también el plan de HMM con la nueva información adquirida de HMM3
+
