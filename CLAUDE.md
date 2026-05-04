@@ -55,7 +55,8 @@ data/
   processed/
     aves_procesado_markov.csv         # Una localización/día/ave (~22k filas) → usado por Markov
     hmm.csv                           # Producido por HMM.ipynb (original); extiende el anterior
-    hmm2.csv                          # Producido por HMM2.ipynb (mejorado); mismas columnas base
+    hmm2.csv                          # Producido por HMM2.ipynb (recomendado); step/bearing/turning/estado_hmm
+    hmm3.csv                          # Producido por HMM3.ipynb (HMM2 + veg); idéntico esquema a hmm2.csv
     hmm_wind.csv                      # Extiende hmm.csv con viento ERA5 a 850 hPa → usado por ML6
 ```
 
@@ -80,19 +81,19 @@ Split **por animal**: primer 80% cronológico → train, último 20% → test. E
 
 ---
 
-## Estado actual — O3: HMM (`HMM2.ipynb`)
+## Estado actual — O3: HMM
 
-### Dos implementaciones: HMM1 vs HMM2
+### Tres implementaciones: HMM1 vs HMM2 vs HMM3
 
-| Aspecto | HMM1 (`HMM.ipynb`) | HMM2 (`HMM2.ipynb`) |
-|---|---|---|
-| Features | `step_length`, `turning_angle`, `veg_low`, `veg_high` | `step_length` (km, bruto), `cos(turning_angle)` |
-| Transformación | Ninguna | Ninguna (tampoco log ni scaler) |
-| `covariance_type` | `'diag'` | `'diag'` |
-| `lengths=` en `.fit()` | **No** — bug crítico | **Sí** — por `trayectoria_id` |
-| Inicializaciones | 1 (`random_state=42`) | 15 seeds; se guarda la mejor |
-| Asignación 0/1 | Manual post-hoc | Automática por `means_[:, 0]` |
-| Validación | Sin análisis de dinámica | Transmat, duración, patrón estacional |
+| Aspecto | HMM1 (`HMM.ipynb`) | HMM2 (`HMM2.ipynb`) | HMM3 (`HMM3.ipynb`) |
+|---|---|---|---|
+| Features | `step_length`, `turning_angle`, `veg_low`, `veg_high` | `step_length`, `cos(turn)` | `step_length`, `cos(turn)`, `veg_low`, `veg_high` |
+| Transformación | Ninguna | Ninguna | Ninguna |
+| `covariance_type` | `'diag'` | `'diag'` | `'diag'` |
+| `lengths=` en `.fit()` | **No** — bug crítico | **Sí** | **Sí** |
+| Inicializaciones | 1 (`random_state=42`) | 15 seeds | 15 seeds |
+| Asignación 0/1 | Manual post-hoc | Automática por `means_` | Automática por `means_` |
+| Validación | Sin análisis de dinámica | Completa | Completa + concordancia vs HMM2 |
 
 ### Resultados de HMM2 (v2, valores reales)
 
@@ -111,6 +112,22 @@ Split **por animal**: primer 80% cronológico → train, último 20% → test. E
 | Estabilidad (15 inits) | todos convergen al mismo LL = −113 068,9 |
 
 HMM1: media migración 119,87 km, media estacionario 3,90 km (similares en emisiones, pero transmat y duración no son confiables por el bug de `lengths`).
+
+### Resultados de HMM3 y comparación con HMM2
+
+| Métrica | HMM2 (sin veg) | HMM3 (con veg) | Δ |
+|---|---|---|---|
+| Media step migración (km) | 129,57 | 125,84 | −3 |
+| Media step estacionario (km) | 4,09 | 4,00 | ≈0 |
+| % días migración | 21,2 % | 21,9 % | +0,7 pp |
+| Persistencia diag. estacionario | 0,917 | 0,917 | 0 |
+| **Concordancia día a día** | — | **98,99 %** | — |
+| Días reclasificados HMM2→HMM3 | — | 212 de 21 081 | — |
+| Δ % migración en verano (jun-ago) | — | **+1,2 pp** (peor) | — |
+
+**Medias de vegetación por estado interno en HMM3**: mig veg_low 0,16, veg_high 0,33 / est veg_low 0,22, veg_high 0,33 — casi idénticas. La vegetación **no discrimina** entre estados.
+
+**Conclusión del experimento HMM3**: añadir vegetación es prácticamente inocuo (99 % de acuerdo). El motor de separación es `step_length`; las features de vegetación tienen varianza ~0,1 frente a ~10⁴ km² de step. Sin embargo, introducen un sesgo leve que aumenta la etiqueta "migración" en verano (+1,2 pp), cuando las aves están en cría. Eso hace que HMM2 siga siendo la implementación recomendada: resultados equivalentes, sin el sesgo de hábitat.
 
 ### Decisiones de diseño clave (HMM2)
 
