@@ -55,8 +55,9 @@ data/
   processed/
     aves_procesado_markov.csv         # Una localización/día/ave (~22k filas) → usado por Markov
     hmm.csv                           # Producido por HMM.ipynb (original); extiende el anterior
-    hmm2.csv                          # Producido por HMM2.ipynb (recomendado); step/bearing/turning/estado_hmm
+    hmm2.csv                          # Producido por HMM2.ipynb; referencia simplificada de 2 features
     hmm3.csv                          # Producido por HMM3.ipynb (HMM2 + veg); idéntico esquema a hmm2.csv
+    hmm5.csv                          # Producido por HMM5.ipynb (CANÓNICO TFG); HMM2 + veg + horas_luz
     hmm_wind.csv                      # Extiende hmm.csv con viento ERA5 a 850 hPa → usado por ML6
 ```
 
@@ -72,7 +73,8 @@ Deben ejecutarse en orden — cada uno alimenta al siguiente:
 
 1. `dataExploration1.ipynb` → limpieza del GPS bruto, produce `aves_procesado_markov.csv`
 2. `HMM.ipynb` → HMM original (referencia); produce `hmm.csv` con features de movimiento + etiqueta HMM + columnas Markov/ML
-   - `HMM2.ipynb` → HMM mejorado (versión recomendada); produce `hmm2.csv` solo con step/bearing/turning/estado_hmm
+   - `HMM2.ipynb` → HMM con 2 features (referencia simplificada); produce `hmm2.csv`
+   - `HMM5.ipynb` → **HMM canónico del TFG** con 4 features recomendadas por la tutora (step + turn + vegetación + horas de luz); produce `hmm5.csv`. Justificación de elegirlo sobre HMM2 en `docs/O3_hmm.md`.
 3. `markov1.ipynb` → construye 12 matrices de transición mensuales desde `aves_procesado_markov.csv`
 4. `ML3–ML5.ipynb` → entrenan clasificadores sobre `hmm.csv` para predecir `target_cell` (ML1 y ML2 fueron eliminados; sus resultados quedan en la tabla de evolución como contexto)
 5. `ML6.ipynb` → igual que ML5 pero sobre `hmm_wind.csv`, añade 5 features de viento ERA5

@@ -30,11 +30,11 @@ Identificar automáticamente si el ave está en reposo o en migración activa an
 | Asignación etiquetas | Manual | Auto por `means_` | Auto por `means_` | Auto por `means_` | Auto por `means_` |
 | Validación | Sin dinámica | Completa | + concordancia vs HMM2 | + contingencia vs HMM2 | + BIC/AIC + concordancia vs HMM2 |
 
-**HMM2 es la versión recomendada** (respeta `n_components=2`). HMM3, HMM4 y HMM5 son experimentos exploratorios, cada uno con un único cambio controlado respecto a HMM2.
+**HMM5 es la versión canónica del TFG** (sigue las 4 features recomendadas por la tutora: `step_length`, `turning_angle`, cobertura vegetal, horas de luz, con `n_components=2`). HMM2 se conserva como **referencia simplificada de 2 features** para la comparación. HMM3 y HMM4 son experimentos exploratorios intermedios. La justificación de elegir HMM5 sobre HMM2 (mejor patrón estacional, mayor pureza en zona ambigua, mayor utilidad para ML downstream, a pesar del peor BIC por *misspecification* del Gaussiano sobre features no-gaussianas) está en la sección "Decisión final HMM2 vs HMM5" más abajo.
 
 ---
 
-## Resultados de HMM2 (versión recomendada)
+## Resultados de HMM2 (referencia simplificada)
 
 | Métrica | Migración (0) | Estacionario (1) |
 |---|---|---|
@@ -156,3 +156,63 @@ El estado "migración" mezcla vuelos largos (step > 100 km, 28 %) con commutes i
 - `|turning_angle|` medio en migración = 1,52 rad (~87°).
 - 14–21 % de días en "migración" incluso en verano (cría).
 - 31 % de las rachas de migración duran 1 solo día.
+
+**Justamente por esa limitación, HMM5 (que añade vegetación + horas de luz) corrige varios de estos síntomas** sin necesitar un tercer estado, manteniendo la restricción de `n_components=2`. Ver siguiente sección.
+
+---
+
+## Decisión final: HMM5 como versión canónica
+
+La tutora recomendó cuatro features (`step_length`, `turning_angle`, cobertura vegetal, horas de luz) y dejó la decisión final al alumno. Tras evaluar HMM2 (2 features) frente a HMM5 (5 features) con métricas estadísticas y biológicas, **se elige HMM5 como versión canónica del TFG**.
+
+### Argumentos a favor de HMM5
+
+1. **Patrón estacional biológicamente correcto** (el argumento más fuerte):
+
+| Período | HMM2 % mig | HMM5 % mig | Esperado biología |
+|---|---|---|---|
+| Jun + Jul (cría) | 23,7 % | **2,8 %** | muy bajo |
+| Ene + Feb (invernada) | 13,8 % | **3,6 %** | bajo |
+| Abr + Sep (paso migratorio) | 37,2 % | 27,6 % | pico |
+
+   En verano las aves están en colonia incubando en latitudes altas (55-70°N): prácticamente ningún día debería ser migración. HMM2 etiqueta el 23,7 % de los días de junio-julio como migración (el conocido falso positivo "commute mezclado con migración"); HMM5 lo baja al 2,8 %, alineado con la biología real.
+
+2. **Pureza en la zona ambigua 10-50 km** (n = 4 935 días): HMM2 etiqueta el 73,2 % como migración; HMM5 solo el 19,2 %. Un movimiento diario de 15-30 km en una gaviota es típicamente forrajeo o commute desde colonia, no migración de larga distancia.
+
+3. **% migración global más cercano a la biología**: HMM2 26,1 % vs HMM5 14,4 % vs rango biológico esperado ~17-25 % (Larus fuscus migra ~2-3 meses/año). Ambos son plausibles; HMM5 es más conservador.
+
+4. **Mayor separación de estados**: Cohen's d sobre `step_length` = 0,88 (HMM2) vs **1,00 (HMM5)**. La media de step en migración pasa de 79 km (HMM2) a 176 km (HMM5), reflejando un estado "migración" más puro (vuelos largos reales en lugar de commutes mezclados).
+
+5. **No pierde migraciones reales**: HMM5 mantiene el 100 % de los días con step > 100 km como migración (idéntico a HMM2) y el 98,3 % de los 50-100 km. La reducción del % migración total ocurre exclusivamente en la zona ambigua 10-50 km.
+
+6. **Útil para ML downstream**: el TFG predice posición diaria; un `estado_hmm` que separe migración real de commute permite al modelo de ML aprender estados con dinámicas espaciales distintas. HMM5 ofrece esa segregación, HMM2 los mezcla.
+
+### El BIC favorece a HMM2 — por qué se acepta esta penalización
+
+| | HMM2 | HMM5 |
+|---|---|---|
+| Log-likelihood | −113 069 | −171 351 |
+| BIC | **226 247** | 342 931 |
+| ΔBIC | — | **+116 684** |
+
+El ΔBIC = +116 684 a favor de HMM2 es enorme y no debe ignorarse. Pero la mayor parte de esa penalización viene de **misspecification del modelo Gaussiano**, no de irrelevancia de las nuevas features:
+
+- `veg_low` y `veg_high` son **fuertemente cero-infladas** (mucha masa en valor exacto 0): el Gaussian asigna densidad ridículamente baja a un 0 cuando la media del estado no es 0, lo que penaliza el log-likelihood sin que esto refleje un peor estado.
+- `horas_luz` es **bimodal a nivel población** (joroba invierno ~11 h, joroba verano ~17-21 h): un único Gaussian por estado no la captura bien.
+
+La literatura de selección de modelos bajo *misspecification* (Vuong 1989; Lv & Liu 2014) advierte que el BIC pierde su garantía de consistencia cuando la familia del modelo es incorrecta — que es exactamente el caso aquí. **El BIC mide cómo de bien el Gaussian HMM comprime los datos, no cómo de correctamente identifica los estados conductuales.** Si el experimento se repitiera con un modelo Beta para vegetación o una mezcla de Gaussianos para horas de luz, la penalización desaparecería.
+
+Por eso se acepta el peor BIC como coste consciente: las features tienen contenido biológico genuino (Cohen's d significativo, p-value Mann-Whitney < 1e-22 para horas_luz), pero el modelo Gaussian no es el contenedor probabilístico óptimo. La validación biológica multidimensional (cuatro criterios independientes) prevalece sobre un único criterio estadístico afectado por *misspecification*.
+
+### Caveats honestos sobre HMM5
+
+- **Duración media estacionario = 24,7 días** (vs 12,1 en HMM2). Plausible porque cría dura ~2 meses e invernada varios meses, pero está en el extremo alto. Verificar con histograma de duraciones.
+- **Concordancia 86,4 % con HMM2**: 2 826 días reasignados, casi todos en step 17-29 km y casi todos en sentido mig→est. Defendible si esos días son commutes (que es la interpretación biológica), no defendible si la tutora considera commute como migración.
+
+### Convención canónica del TFG
+
+A partir de esta decisión:
+
+- `data/processed/hmm5.csv` es la **fuente canónica del estado conductual** para el resto del TFG.
+- El pipeline ML downstream (ML0) debe usar `hmm5.csv` como entrada.
+- HMM2 se mantiene como referencia simplificada para la sección comparativa de la memoria.

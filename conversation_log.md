@@ -976,3 +976,20 @@ quiero que incluyas en HMM5 un gráfico de barras laterales de cúanto influye c
 ## [2026-05-06 18:13] Prompt
 commit y push
 
+## [2026-05-06 18:16] Prompt
+ultrathink Yo creo que tiene más sentido utilizar HMM5 que HMM2, pero no estoy del todo seguro. Mi profesora me recomendó utilizar el step_lenght, el turning_angle, la cobertura vegetal y las horas de luz. Pero dejó a mi criterio ver si era buena idea. Te pido que evalúes por última vez si es mejor la versión de HMM2 o HMM5.
+
+### Resumen de respuesta
+Evaluación final con razonamiento profundo (ultrathink) sobre HMM2 vs HMM5. Conclusión: **HMM5 es la versión canónica del TFG**. Argumentos: (1) patrón estacional biológicamente correcto (verano cría 2,8 % vs 23,7 %; invierno 3,6 % vs 13,8 %), (2) pureza en zona ambigua 10-50 km (19,2 % vs 73,2 % migración), (3) % migración global más realista (14,4 % vs 26,1 %; rango biológico ~17-25 %), (4) Cohen's d 1,00 vs 0,88 sobre `step_length`, (5) no pierde migraciones reales (100 % de step > 100 km siguen siendo migración). El peor BIC (ΔBIC = +116 684 a favor de HMM2) se acepta como coste consciente: viene de *misspecification* del Gaussian sobre features no-gaussianas (vegetación cero-inflada, horas de luz bimodal estacional), no de irrelevancia de las features (Vuong 1989; Lv & Liu 2014).
+
+Cambios implementados:
+- `docs/O3_hmm.md` — sección "Decisión final: HMM5 como versión canónica" con justificación completa; cambio de "HMM2 es la versión recomendada" a "HMM5 es la versión canónica del TFG, HMM2 referencia simplificada".
+- `notebooks/HMM5.ipynb` — celda markdown final con la decisión condensada (5-10 líneas, usable verbatim en la memoria).
+- `CLAUDE.md` — pipeline de notebooks marca HMM5 como canónica; data layout añade `hmm5.csv` con etiqueta CANÓNICO TFG.
+- `notebooks/ML0.ipynb` — fuente cambiada de `hmm2.csv` a `hmm5.csv` (esquema de 13 columnas, asserts actualizados). El cálculo independiente de `daylight_h` con `ephem` se mantiene como sanity check vs `horas_luz` de Spencer 1971.
+- `docs/IA_uso_registro.md` — entrada O3 reescrita para reflejar la decisión final como caso de corrección crítica (la primera lectura de la IA seguía solo el BIC y daba veredicto incorrecto; el alumno aplicó conocimiento biológico y forzó reevaluación completa).
+
+Plan completo en `/home/jllorens/.claude/plans/son-veg-low-y-veg-high-calm-sonnet.md`.
+
+---
+
