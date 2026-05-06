@@ -56,6 +56,14 @@ URL de la herramienta: `https://claude.com/claude-code`.
 - **Validación**: 15 seeds convergen al mismo LL (`-98.614,3`); tabla de contingencia HMM4×HMM2 con 21 081 días emparejados; verificación de los 4 síntomas listados en HMM2_plan.md.
 - **Caso de corrección crítica** (relevante para el anexo): el plan original asumía que el commute de HMM4 caería en `mig(HMM2)`. La ejecución mostró lo contrario (84,4 % en `est(HMM2)`). La narrativa de la Fase 7 se reescribió tras los datos para reflejar el hallazgo real, no la hipótesis previa.
 
+#### HMM5 — experimento con vegetación + horas de luz
+
+- **Rol de la IA**: diseñar una variante que añade tres features sobre HMM2 (`veg_low`, `veg_high`, `horas_luz`); implementar la función `daylight_hours` con la fórmula astronómica de Spencer 1971 y clipping para sol de medianoche / noche polar; construir un protocolo de comparación formal con BIC y AIC además de la concordancia día a día usada en HMM3/HMM4.
+- **Aportación propia**: petición explícita del experimento ("ultrathink: HMM5 con `veg_low`, `veg_high`, horas de luz") tras razonar que el análisis previo de complementariedad de vegetación abría la pregunta sobre la fotoperiodía como feature ortogonal.
+- **Validación**: 15 seeds convergen al mismo LL (`-171 351,2`); sanity checks de `daylight_hours` contra valores conocidos (ecuador 12 h, 60° N solsticio 18,5 h, 80° N solsticio 24/0 h) pasan; concordancia día-a-día con HMM2 (86,4 % sobre 20 836 días alineados) y matriz de confusión 2×2; test Mann-Whitney U sobre `horas_luz` entre estados.
+- **Hallazgo central**: HMM5 es **peor** que HMM2 según los criterios formales (ΔBIC = +116 684; ΔAIC = +116 588). El log-likelihood empeora porque el Gaussian diagonal no captura la bimodalidad de vegetación ni el patrón estacional de horas de luz; la fotoperiodía discrimina muy poco entre estados (Δ medias 0,83 h, mediana prácticamente idéntica 12,03 vs 12,06 h). Confirma con números que HMM2 es la referencia correcta.
+- **Conclusión asumida**: la fotoperiodía y la vegetación no son señales útiles para un HMM gaussiano de 2 estados; añadirlas no compensa su coste estadístico ni su efecto distorsionador sobre las asignaciones (2 826 días reasignados, sobre todo mig→est en la franja 17–29 km).
+
 ### O4 — Predicción con Machine Learning
 
 #### ML5 / ML6 — análisis comparativo

@@ -310,7 +310,127 @@ La interpretación precisa de los estados en cualquiera de los tres modelos es:
 - `notebooks/HMM.ipynb` — implementación original (HMM1, referencia).
 - `notebooks/HMM2.ipynb` — implementación recomendada (sin vegetación).
 - `notebooks/HMM3.ipynb` — variante con vegetación.
+- `notebooks/HMM4.ipynb` — variante con 3 estados (ver Fase 7).
 - `data/processed/hmm.csv` — output de HMM1.
 - `data/processed/hmm2.csv` — output de HMM2.
 - `data/processed/hmm3.csv` — output de HMM3.
-- `CLAUDE.md` — fija la convención `0 = migración, 1 = estacionario`.
+- `data/processed/hmm4.csv` — output de HMM4.
+- `CLAUDE.md` — fija la convención `0 = migración, 1 = estacionario` (HMM4 añade `2 = commute`).
+
+---
+
+# Fase 7 — Experimento HMM4: ¿qué ocurre al añadir un tercer estado?
+
+## Motivación
+
+La Fase 5 (caveat 1) anticipa que el modelo de 2 estados impuesto por la profesora **mezcla vuelos largos reales con commutes activos intra-residencia** dentro de la misma etiqueta `migración`. Cuatro síntomas concretos lo evidencian: `|turning_angle|` medio de 1,52 rad en migración (87°, no recta), 14–21 % de "migración" en verano (cría), 31 % de rachas de migración de un solo día, y duración media del estacionario de 12,1 días (no semanas).
+
+**HMM4 contrasta empíricamente esa hipótesis**: replica HMM2 cambiando únicamente `n_components` de 2 a 3, igual que HMM3 cambió únicamente la presencia de `veg_low/veg_high`. Es un experimento exploratorio que **viola explícitamente la restricción de 2 estados** y por eso no sustituye a HMM2 en la defensa del TFG; lo complementa cuantificando qué información se pierde con esa restricción.
+
+## Diseño
+
+`notebooks/HMM4.ipynb` mantiene **idéntico** todo el resto del diseño de HMM2:
+
+| Aspecto | HMM2 | HMM4 |
+|---|---|---|
+| Features | `step_length`, `cos(turning_angle)` | **idéntico** |
+| Transformaciones | sin log, sin StandardScaler | **idéntico** |
+| `covariance_type` | `'diag'` | **idéntico** |
+| `lengths=` por trayectoria | sí | **idéntico** |
+| 15 inicializaciones | sí | **idéntico** |
+| `n_components` | 2 | **3** |
+| Convención etiquetas | 0=mig, 1=est | 0=mig real, 1=est, 2=commute |
+| Output | `hmm2.csv` | `hmm4.csv` |
+
+La convención de etiquetas preserva `0`/`1` con el mismo significado que HMM2 y reserva `2` para el nuevo estado intermedio, lo que permite mapear HMM4 → HMM2 con `{0,2}→0` cuando se quiera comparar.
+
+## Resultados
+
+### Estabilidad y emisiones
+
+- **Convergencia perfecta**: las 15 seeds convergen al mismo log-likelihood (`-98.614,3`, dispersión 0,0). Con 3 estados sigue habiendo un único óptimo global, igual que con 2.
+- **Medias de `step_length` por estado**:
+
+| Estado | n días | Media (km) | Mediana (km) | Std (km) | `\|turn\|` medio (rad) |
+|---|---|---|---|---|---|
+| Migración real (0) | 2 559 (12,1 %) | **204,98** | 95,19 | 250,79 | **1,131** (~65°) |
+| Estacionario (1) | 6 095 (28,9 %) | 0,13 | 0,07 | 0,15 | 1,782 |
+| Commute activo (2) | 12 427 (58,9 %) | 9,87 | 5,85 | 9,96 | 2,044 |
+
+- **Sanity check**: el gap estacionario→commute es de 9,5 km (< 15 km), por lo que el sistema marca un warning de separación marginal. Sin embargo, la diferencia funcional es enorme: el estacionario se concentra en step ≪ 1 km (descanso casi total) mientras que el commute se distribuye en torno a 6–14 km.
+
+### Matriz de transición y duraciones
+
+```
+                 → mig (0)   → est (1)   → commute (2)
+desde mig (0)      0,7146     0,0552      0,2303
+desde est (1)      0,0228     0,6467      0,3305
+desde commute (2)  0,0489     0,1550      0,7960
+```
+
+Duraciones medias `1/(1-p_diag)`: **migración 3,5 días | estacionario 2,8 días | commute 4,9 días**. El commute es el estado más persistente, lo que es coherente con su interpretación como "régimen normal de actividad intra-residencia".
+
+### Comparación día a día con HMM2 (21 081 días emparejados)
+
+**Tabla de contingencia**:
+
+|  | est HMM2 | mig HMM2 | total |
+|---|---:|---:|---:|
+| migración real (0) HMM4 | 28 | **2 531 (98,9 %)** | 2 559 |
+| estacionario (1) HMM4 | **6 086 (99,9 %)** | 9 | 6 095 |
+| commute activo (2) HMM4 | **10 491 (84,4 %)** | 1 936 (15,6 %) | 12 427 |
+
+- `mig real (HMM4)` ⊂ `mig (HMM2)` (98,9 %): el estado 0 de HMM4 es un **subconjunto estricto** del de HMM2.
+- `est (HMM4)` ⊂ `est (HMM2)` (99,9 %): el nuevo estacionario es un subconjunto aún más estricto del de HMM2.
+- **Hallazgo inesperado**: el commute (HMM4) cae mayoritariamente en `est (HMM2)`, **no** en `mig (HMM2)` como anticipaba el plan. Solo 1 936 de 12 427 días de commute (15,6 %) eran "migración" en HMM2. Los otros 10 491 (84,4 %) eran "estacionario" en HMM2.
+
+Esto cambia la lectura del experimento: **la frontera principal que añade el tercer estado no está entre vuelo largo y commute, sino entre quietud casi total (≪ 1 km) y movimiento intra-residencia leve (~10 km)**. El espectro queda redibujado:
+- HMM2 colocaba la frontera est/mig en torno a 25 km.
+- HMM4 coloca dos fronteras: est/commute en torno a 0,5 km, y commute/mig en torno a 30 km.
+
+### Verificación de los 4 síntomas
+
+| Síntoma de HMM2 | HMM2 | HMM4 | ¿Mejora? |
+|---|---|---|---|
+| `\|turning_angle\|` medio en migración | 1,52 rad (~87°) | **1,13 rad (~65°)** | ✅ baja 0,39 rad |
+| % migración en verano (jun-ago) | 17,4 % | **6,3 %** | ✅ baja 11,1 pp |
+| Step medio de migración | 129,6 km | **205,0 km** | ✅ sube 75 km |
+| Mediana run-length estacionario | 4,0 días | **1,0 día** | ❌ baja 3 días |
+
+Los tres primeros confirman la hipótesis. El cuarto **la contradice**: la mediana del run-length estacionario baja, no sube. La razón es coherente con el hallazgo anterior — al redefinir "estacionario" como step ≪ 1 km, cualquier movimiento mínimo (típico tras un día de descanso real) saca al ave del estado, lo que produce rachas más cortas. El régimen de "permanencia en zona de cría" lo captura ahora el commute (4,9 días de duración media), no el estacionario.
+
+### Patrón estacional
+
+| Mes | HMM2 % mig | HMM4 % mig real | HMM4 % commute |
+|---|---:|---:|---:|
+| Ene | 7,1 | 1,7 | 63,2 |
+| Feb | 9,0 | 1,7 | 64,7 |
+| Mar | 16,9 | 8,1 | 64,2 |
+| **Abr** | **34,0** | **25,7** | 50,6 |
+| May | 23,1 | 14,0 | 48,9 |
+| Jun | 14,9 | 4,0 | 57,2 |
+| Jul | 19,1 | 4,8 | 61,3 |
+| Ago | 18,2 | 10,1 | 58,5 |
+| **Sep** | **31,9** | **22,9** | 56,2 |
+| **Oct** | **32,7** | **22,2** | 57,4 |
+| Nov | 22,5 | 13,4 | 61,7 |
+| Dic | 14,5 | 7,1 | 62,4 |
+
+La curva de migración real (HMM4 estado 0) muestra picos limpios en abril, septiembre y octubre, y se hunde correctamente en verano. El commute es prácticamente plano todo el año (~50–65 %), lo que es consistente con un régimen base de actividad intra-residencia.
+
+## Conclusiones del experimento
+
+1. **La hipótesis original se cumple parcialmente**: el tercer estado limpia la migración real (vuelos más rectos, más largos, sin pico veraniego espurio). Tres de cuatro síntomas mejoran.
+
+2. **La narrativa que esperábamos no es la que encontramos**: el plan asumía que HMM2 estaba mezclando "commute activo" dentro de su estado de migración. La realidad es que HMM2 estaba mezclando "movimiento intra-residencia leve" dentro de su estado **estacionario**. El nuevo estado intermedio se nutre principalmente de días que HMM2 marcaba como `est`, no como `mig`.
+
+3. **El run-length estacionario empeora como métrica directa, pero la información no se pierde — se redistribuye**: lo que en HMM2 era una racha estacionaria de 12 días, en HMM4 se desglosa en alternancia de est (descanso) y commute (movimiento leve) que sumadas dan duraciones similares. Para reproducir el "estacionario amplio" de HMM2 hay que sumar `est + commute` de HMM4.
+
+4. **HMM2 sigue siendo la versión recomendada para la defensa**: respeta la restricción de la profesora, y su `mig`/`est` corresponde a una segmentación operativa razonable (`mig HMM2` ≈ `mig real + 15 % del commute` HMM4, `est HMM2` ≈ `est + 84 % del commute` HMM4).
+
+5. **Valor para el TFG**: este experimento aporta una cuantificación honesta de **qué se gana y qué se pierde al relajar la restricción de 2 estados**. No es un argumento puramente teórico sino un análisis numérico día a día. En particular, demuestra que el techo de migración del 14–21 % en verano es un artefacto de la restricción a dos estados (con 3 baja a 6 %), lo que es un límite metodológico relevante a documentar en el TFG.
+
+## Implementación
+
+- `notebooks/HMM4.ipynb` — copia de HMM2 con `n_components=3`, etiquetado por orden de `means_[:, 0]`, validación a 3 estados y sección de comparación HMM4 vs HMM2 (apartados 8.1–8.5).
+- `data/processed/hmm4.csv` — mismo esquema que `hmm2.csv` (12 columnas), única diferencia: `estado_hmm ∈ {0, 1, 2}`.

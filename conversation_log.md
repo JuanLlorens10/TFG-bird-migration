@@ -909,3 +909,49 @@ Inventario de los 7 notebooks ML existentes (ML0–ML6) cruzado con `docs/O4_ml.
 
 ---
 
+## [2026-05-06 17:15] Prompt
+haz push
+
+## [2026-05-06 17:17] Prompt
+Son veg_low y veg_high complementarios? Porque si es así podría utilizar solamente uno en el entrenamiento del HMM por ejemplo?
+
+### Resumen de respuesta
+Análisis empírico sobre `data/processed/hmm2.csv` (21 081 filas): `veg_low` y `veg_high` **no son complementarios**. Vienen del CSV bruto Movebank/ECMWF como dos índices independientes en [0, 1]. Solo el 27,6 % de los registros suman exactamente 1 y el 36,3 % caen en [0,95 ; 1,05]; la suma media es 0,541 (la mayoría de celdas tienen poca vegetación de cualquier tipo). Implicación práctica: eliminar una pierde información real, pero los datos ya en `docs/O3_hmm.md` muestran que ninguna discrimina bien estados de comportamiento (medias `veg_high` 0,33 vs 0,33, `veg_low` 0,16 vs 0,22) — la decisión correcta sigue siendo la actual (HMM2 sin vegetación). Plan registrado en `/home/jllorens/.claude/plans/son-veg-low-y-veg-high-calm-sonnet.md`.
+
+---
+
+## [2026-05-06 17:24] Prompt
+Ultrathink: quiero que me generes un HMM5 a partir de HMM2 que sea igual pero que implemente también como variables veg_low, veg_high y horas de luz diarias. Luego pasaremos a probar si es mejor que HMM2 o no, utilizando las métricas necesarias.
+
+### Resumen de respuesta
+Creado `notebooks/HMM5.ipynb` (35 celdas) y `data/processed/hmm5.csv` (21 081 filas, 13 columnas = HMM2 + `horas_luz`). Estructura idéntica a HMM2 con tres features añadidas: `veg_low`, `veg_high` y `horas_luz` (esta última calculada con la fórmula astronómica de Spencer 1971 a partir de `lat` y `day_of_year`, con clipping para sol de medianoche / noche polar — sanity checks pasan en ecuador, 60° N y 80° N). Mismo protocolo que HMM2/HMM3: `lengths=` por trayectoria_id, 15 seeds, `covariance_type='diag'`, asignación 0/1 por `means_`, sin escalar.
+
+**Resultados (HMM5 vs HMM2 vs HMM3, n = 21 081):**
+
+| Métrica | HMM2 | HMM3 | HMM5 |
+|---|---|---|---|
+| LL (train) | −113 068,9 | −121 642,2 | **−171 351,2** |
+| BIC | 226 247 | 243 474 | **342 931** |
+| AIC | 226 160 | 243 322 | **342 748** |
+| % días migración | 26,1 % | 21,9 % | 14,4 % |
+| Persistencia est diag | 0,917 | 0,917 | 0,960 |
+| Duración media est | 12,1 d | 12,0 d | 24,7 d |
+| Concordancia con HMM2 | 100 % | 94,5 % | 86,4 % |
+| Δ horas_luz mig vs est | — | — | **−0,83 h** |
+| Media step migración | 129,6 km | 125,8 km | 176,2 km |
+
+**Conclusión cuantitativa**: HMM5 es **peor** que HMM2 según los tres criterios formales: ΔBIC = +116 684, ΔAIC = +116 588 (favorecen HMM2 por márgenes enormes). El LL empeora porque modelar 5 dimensiones con un Gaussian diagonal por estado es menos eficiente que modelar 2 (la varianza diagonal no captura la bimodalidad de `veg_low`/`veg_high` ni el patrón estacional de `horas_luz`). La fotoperiodía discrimina muy poco entre estados (Δ medias 0,83 h, mediana prácticamente idéntica 12,03 vs 12,06 h) — confirma que `step_length` sigue siendo el motor de la separación. El modelo se vuelve más conservador (solo 14,4 % migración) y reasigna 2 826 días respecto a HMM2 (sobre todo mig→est en la franja 17–29 km). El experimento valida con números la decisión de HMM2 de no incluir features ambientales.
+
+Documentación actualizada en `CLAUDE.md` (tabla con HMM5) y `docs/IA_uso_registro.md` (entrada O3 con tarea HMM5).
+
+---
+
+## [2026-05-06 17:44] Prompt
+Este claude.md es incorrecto, el que yo estaba usando antes tenía las referencias a los otros documentos, y era más general y breve. Quiero esa versión
+
+## [2026-05-06 17:46] Prompt
+El claude.md tiene que tener la información general del proyecto. Las especificaciones de cada módulo se tienen que guardar en su docs/OX en especifico
+
+## [2026-05-06 17:49] Prompt
+dejalo así. Commit y push
+
