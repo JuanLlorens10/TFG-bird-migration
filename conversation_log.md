@@ -955,3 +955,24 @@ El claude.md tiene que tener la información general del proyecto. Las especific
 ## [2026-05-06 17:49] Prompt
 dejalo así. Commit y push
 
+## [2026-05-06 17:51] Prompt
+Quiero que incluyas en O3 la informaciñon de HMM5
+
+## [2026-05-06 17:52] Prompt
+commit y push
+
+## [2026-05-06 17:54] Prompt
+Y por qué HMM5 es peor que HMM2? La gráfica de patrón estacional: % de días en migración por mes parece tener más sentido en HMM5 que en HMM2
+
+## [2026-05-06 17:58] Prompt
+No hay que crear tres estados, solamente dos. Me lo ha dicho mi tutora. Así que dime, cuál es mejor, HMM2 o HMM5. Dame métricas que lo validen.
+
+## [2026-05-06 18:03] Prompt
+que es el ajuste gaussiano?
+
+## [2026-05-06 18:05] Prompt
+quiero que incluyas en HMM5 un gráfico de barras laterales de cúanto influye cada variable en categorizar un estado como migración o estacionario
+
+## [2026-05-06 18:13] Prompt
+commit y push
+
