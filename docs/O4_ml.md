@@ -9,15 +9,17 @@ Entrenar y comparar modelos de clasificación (RF, XGBoost, LightGBM) para prede
 
 ## Notebooks
 
-Línea principal (sobre `hmm.csv`, todavía con leakage en `step_length`/`bearing` por venir como salto t→t+1):
+Línea principal (todavía con leakage en `step_length`/`bearing` por venir como salto t→t+1):
 
 `ML3.ipynb` → `ML4.ipynb` → `ML5.ipynb` → `ML6.ipynb`
 
-Todos leen `data/processed/hmm.csv` (ML3–ML5) o `data/processed/hmm_wind.csv` (ML6).
+ML3–ML5 leen `data/processed/hmm5.csv` (versión canónica del HMM; `estado_hmm` de HMM5). ML6 lee `data/processed/hmm_wind.csv` (extiende `hmm.csv`/HMM1 con viento ERA5 — no migrado a HMM5 porque requeriría reconstruir el dataset de viento).
+
+> **Nota sobre leakage**: cambiar a `hmm5.csv` actualiza el `estado_hmm` a las etiquetas de HMM5, pero `step_length` y `bearing` en el CSV siguen siendo el salto t→t+1 (leakage respecto al target `cell(t+1)`). ML3–ML5 heredan este leakage; solo ML0 lo corrige.
 
 Línea paralela limpia:
 
-`ML0.ipynb` — baseline rediseñado desde cero sobre `hmm2.csv`, recalculando las features de movimiento como salto t-1 → t para eliminar el leakage. Pensado como referencia limpia para construir variantes posteriores (ML0b, ML0c…) midiendo qué aporta cada decisión adicional.
+`ML0.ipynb` — baseline rediseñado desde cero sobre `hmm5.csv`, recalculando las features de movimiento como salto t-1 → t para eliminar el leakage. Pensado como referencia limpia para construir variantes posteriores (ML0b, ML0c…) midiendo qué aporta cada decisión adicional.
 
 > Nota: `ML1.ipynb` y `ML2.ipynb` se eliminaron del repositorio (commit de limpieza del 2026-05-06). Sus aportaciones — fase lunar y día de la semana como features temporales — quedaron descartadas en ML3 sin aportar señal. Las filas ML1/ML2 de la tabla siguiente se conservan como contexto histórico de la evolución; los notebooks ya no existen en disco. Si se necesita recuperarlos, están en el historial de git.
 
@@ -33,15 +35,17 @@ Primer 80 % cronológico → train; último 20 % → test. El `LabelEncoder` se 
 |---------|-----------------|-----------------|-------------------|--------------|
 | ML1 † | Baseline: mes + día semana + fase lunar | — | — | 80,3 % |
 | ML2 † | Quita fase lunar | — | — | 80,8 % |
-| ML3 | Solo semana del año | 47,9 % | 87,2 % | 81,1 % |
-| ML4 | Modelos separados por estado + lag-1 | 44,5 % | 89,2 % | 82,3 % |
-| **ML5** | +lag-2, racha, episodio, dist. latitudinal, delta_bearing | **43,4 %** | **89,8 %** | **82,9 %** |
+| ML3 | Solo semana del año | 47,9 % ‡ | 87,2 % ‡ | 81,1 % ‡ |
+| ML4 | Modelos separados por estado + lag-1 | 44,5 % ‡ | 89,2 % ‡ | 82,3 % ‡ |
+| **ML5** | +lag-2, racha, episodio, dist. latitudinal, delta_bearing | **43,4 % ‡** | **89,8 % ‡** | **82,9 % ‡** |
 | ML6 | +viento ERA5 a 850 hPa (u, v, speed, tail, cross) | 41,6 % | 88,4 % | — |
-| ML0 | Línea paralela limpia sobre `hmm2.csv`, anti-leakage (12 features) | pendiente | pendiente | pendiente |
+| ML0 | Línea paralela limpia sobre `hmm5.csv`, anti-leakage (12 features) | pendiente | pendiente | pendiente |
 
 † Notebook eliminado del repositorio el 2026-05-06; el resultado se conserva como contexto histórico (recuperable desde el historial de git).
 
-**ML5 es la mejor versión de la línea histórica.** ML6 empeora a pesar de añadir viento ERA5. ML0 está pendiente de ejecución completa (el `RandomizedSearchCV` se reajustó para evitar OOM).
+‡ Resultados históricos obtenidos sobre `hmm.csv` (etiquetas HMM1). ML3–ML5 ahora leen `hmm5.csv` (etiquetas HMM5 canónicas); los resultados actualizados están **pendientes de re-ejecución**.
+
+**ML5 es la mejor versión de la línea histórica** (con etiquetas HMM1). Los resultados con etiquetas HMM5 (más limpias en verano/invierno y zona ambigua 10-50 km) se esperan iguales o ligeramente mejores en estacionario, y posiblemente diferentes en migración por el cambio en qué días se etiquetan como migración. ML6 empeora a pesar de añadir viento ERA5. ML0 está pendiente de ejecución completa.
 
 ---
 
@@ -75,7 +79,7 @@ Tiempo:         mes_num, sin_mes, cos_mes
 Movimiento:     step_prev, sin_bearing, cos_bearing
 Hábitat:        veg_low, veg_high
 Fotoperiodo:    daylight_h
-Comportamiento: estado_hmm   (con caveat: estado_hmm en hmm2.csv se obtuvo a partir de las features con leakage)
+Comportamiento: estado_hmm   (etiquetas de HMM5 — modelo canónico del TFG)
 ```
 
 Detalles del baseline en `notebooks/O4_plan.md` §1.
