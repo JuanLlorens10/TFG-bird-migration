@@ -996,3 +996,18 @@ Plan completo en `/home/jllorens/.claude/plans/son-veg-low-y-veg-high-calm-sonne
 ## [2026-05-06 19:15] Prompt
 haz el push y commit
 
+## [2026-05-06 19:16] Prompt
+Quiero que cambies en todos los ML para que usen hmm5.csv
+
+## [2026-05-06 19:20] Prompt
+sí, deja ML6 y cambia ML3, ML4 y ML5
+
+## [2026-05-06 19:24] Prompt
+actualizar la documentación de O4_ml.md
+
+## [2026-05-06 19:26] Prompt
+actualiza O3_hmm.md y IA_uso_registro.md con la información relevante sobre HMM5 actualizada
+
+## [2026-05-06 19:31] Prompt
+commit y push
+
