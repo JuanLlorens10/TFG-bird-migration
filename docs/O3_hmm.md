@@ -2,21 +2,21 @@
 
 > Referencia específica para el objetivo O3 del TFG.
 > Actualizar tras cada sesión de trabajo en este objetivo.
-> Para el detalle completo de cada fase (diseño, experimentos, resultados paso a paso) ver `notebooks/HMM2_plan.md`.
+> Para el detalle completo de cada fase (diseño, experimentos, resultados paso a paso) ver `notebooks/HMM2_plan.md`. Notebook canónico del TFG: `notebooks/HMM5.ipynb`.
 
 ## Objetivo
 
-Identificar automáticamente si el ave está en reposo o en migración activa analizando su velocidad (`step_length`) y rumbo (`turning_angle`) mediante un Hidden Markov Model gaussiano.
+Identificar automáticamente si el ave está en reposo o en migración activa mediante un Hidden Markov Model gaussiano. La versión canónica (HMM5) usa cuatro features recomendadas por la tutora: `step_length`, `turning_angle`, cobertura vegetal (`veg_low`, `veg_high`) y horas de luz diarias (`horas_luz`).
 
 ## Notebooks
 
 | Notebook | Output | Descripción |
 |---|---|---|
 | `HMM.ipynb` | `hmm.csv` | HMM1: implementación original (referencia, tiene bug de `lengths`) |
-| `HMM2.ipynb` | `hmm2.csv` | HMM2: versión recomendada (sin bug, 15 seeds, `cos(turn)`) |
+| `HMM2.ipynb` | `hmm2.csv` | HMM2: referencia simplificada (2 features: step + cos(turn)) |
 | `HMM3.ipynb` | `hmm3.csv` | HMM3: experimento — HMM2 + vegetación |
 | `HMM4.ipynb` | `hmm4.csv` | HMM4: experimento — HMM2 con 3 estados |
-| `HMM5.ipynb` | `hmm5.csv` | HMM5: experimento — HMM2 + vegetación + horas de luz |
+| `HMM5.ipynb` | `hmm5.csv` | **HMM5: CANÓNICA del TFG** — 4 features recomendadas por la tutora |
 
 ## Cinco implementaciones comparadas
 
@@ -68,7 +68,7 @@ HMM1: media migración 119,87 km, media estacionario 3,90 km (similares en emisi
 
 **Medias de vegetación por estado en HMM3**: mig veg_low 0,16, veg_high 0,33 / est veg_low 0,22, veg_high 0,33 — casi idénticas. La vegetación **no discrimina** entre estados. Motor de separación = `step_length`.
 
-**Conclusión HMM3**: inocuo (99 % de acuerdo) pero introduce sesgo leve de +1,2 pp en verano. HMM2 sigue siendo la versión recomendada.
+**Conclusión HMM3**: inocuo (99 % de acuerdo) pero introduce sesgo leve de +1,2 pp en verano. HMM2 es más limpio que HMM3 como referencia simplificada. La versión canónica del TFG es HMM5, que combina vegetación con horas de luz y obtiene un patrón estacional biológicamente más correcto.
 
 ---
 
@@ -127,35 +127,45 @@ Las 15 seeds convergen al mismo LL (`-98.614,3`, dispersión 0,0).
 | Media `horas_luz` estacionario | — | — | 13,26 h |
 | **Δ `horas_luz` mig − est** | — | — | **−0,83 h** |
 
-**ΔBIC(HMM5 − HMM2) = +116 684**. HMM5 empeora por márgenes enormes.
+**ΔBIC(HMM5 − HMM2) = +116 684**. El BIC penaliza fuertemente a HMM5.
 
-### Interpretación
+### Interpretación inicial (superada tras análisis más profundo)
+
+El análisis inicial concluyó que HMM5 era peor porque:
 
 1. **El LL empeora** aunque HMM5 tiene más parámetros. Motivo: el Gaussian diagonal no captura bien la forma de las nuevas features (`veg_low/veg_high` con masa concentrada en 0; `horas_luz` con patrón estacional bimodal). El coste en log-verosimilitud por dimensión supera cualquier ganancia de discriminación.
 
-2. **La fotoperiodía no discrimina estados**: Δ medias = 0,83 h, y la **mediana es prácticamente idéntica** (12,03 vs 12,06 h). La diferencia aparece solo en las colas, no en el centro de la distribución.
+2. **La fotoperiodía no discrimina estados por la media**: Δ medias = 0,83 h, mediana prácticamente idéntica (12,03 vs 12,06 h).
 
-3. **El modelo se desequilibra**: HMM5 solo asigna 14,4 % de días a migración (vs 26,1 % en HMM2) y reasigna 2 826 días, sobre todo mig→est en la franja 17–29 km de step. La duración media del estado estacionario sube a 24,7 días (irreal, doble de HMM2).
+3. **HMM5 reasigna 2 826 días** (86,4 % concordancia), sobre todo mig→est en la franja 17–29 km.
 
-**Conclusión HMM5**: añadir vegetación y horas de luz es **contraproducente** en este contexto. El experimento confirma con BIC/AIC y concordancia que `step_length` es el motor único de la separación y que HMM2 es la elección correcta.
+Sin embargo, el análisis posterior reveló que el ΔBIC es un *misspecification penalty* (el modelo Gaussiano no es el contenedor óptimo para esas distribuciones) y que cuatro criterios biológicos independientes favorecen a HMM5. **Ver sección "Decisión final" más abajo.**
 
 ---
 
-## Decisiones de diseño clave (HMM2)
+## Decisiones de diseño clave (compartidas por HMM2 y HMM5)
 
 1. **`lengths=` por `trayectoria_id`** — imprescindible; sin él el HMM modela ~480 transiciones espurias entre aves distintas.
-2. **`step_length` en bruto, sin `log` ni `StandardScaler`** — la distribución bimodal (pico 0–5 km / cola 50–200+ km) es la señal más fuerte. Escalar la diluye (demostrado en la v1 fallida).
+2. **`step_length` en bruto, sin `log` ni `StandardScaler`** — la distribución bimodal (pico 0–5 km / cola 50–200+ km) es la señal más fuerte. Escalar la diluye (demostrado en la v1 fallida de HMM2).
 3. **`cos(turning_angle)` en lugar de `turning_angle` raw** — resuelve la circularidad (−π y +π son el mismo ángulo) sin necesitar von Mises.
 4. **`covariance_type='diag'`** — con varianzas tan dispares (step ~10⁴ km² vs cos ~0,5), full es inestable.
-5. **Sin `veg_low/veg_high`** — son features de hábitat, no de comportamiento. La profesora pidió "velocidad y rumbo".
+5. **HMM5 añade `veg_low`, `veg_high`, `horas_luz`** siguiendo la recomendación de la tutora. El BIC penaliza estas features por *misspecification* del Gaussiano (no porque sean irrelevantes). HMM2 las omite y funciona como referencia simplificada.
 
 ## Limitación conocida del modelo de 2 estados
 
-El estado "migración" mezcla vuelos largos (step > 100 km, 28 %) con commutes intra-residencia (step 20–100 km, 72 %). Con `n_components=2` es imposible separar ambos. Consecuencias:
+Con `n_components=2` el estado "migración" mezcla vuelos largos (step > 100 km) con commutes intra-residencia (step 20–100 km). HMM5 mitiga parcialmente esta mezcla usando la señal estacional de `horas_luz`.
+
+**En HMM2** (referencia simplificada, 2 features):
 - Mediana de migración = 43 km (no 100+).
 - `|turning_angle|` medio en migración = 1,52 rad (~87°).
-- 14–21 % de días en "migración" incluso en verano (cría).
+- 14–21 % de días en "migración" incluso en verano (cría) — falsos positivos de commute.
 - 31 % de las rachas de migración duran 1 solo día.
+
+**En HMM5** (canónica, 5 features):
+- Mediana de migración = 73,9 km.
+- `|turning_angle|` medio en migración = 1,225 rad (~70°) — más cercano al vuelo dirigido.
+- Solo 2,8 % de días etiquetados como migración en junio–julio (verano/cría).
+- Cohen's d sobre `step_length` = 1,00 (vs 0,88 en HMM2) — mayor separación entre estados.
 
 **Justamente por esa limitación, HMM5 (que añade vegetación + horas de luz) corrige varios de estos síntomas** sin necesitar un tercer estado, manteniendo la restricción de `n_components=2`. Ver siguiente sección.
 
