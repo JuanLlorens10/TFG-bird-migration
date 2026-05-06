@@ -24,6 +24,15 @@ URL de la herramienta: `https://claude.com/claude-code`.
 - **Validación**: contraste programático con `pandas.read_csv` del CSV final (8 columnas, 22 041 filas, 117 aves, 480 trayectorias, rango 2009-05-25 → 2015-08-23) y con la distribución horaria final (14h: 15 408 / 13h: 4 548 / 15h: 2 085).
 - **Prompt clave** (`conversation_log.md`): `[2026-05-06 16:47]` "Redacta O1_datos.md correctamente en base a la información proporcionada por dataExploration1…".
 
+### O2 — Predicción estadística con Markov
+
+#### Redacción de `docs/O2_markov.md` como referencia del notebook `markov1.ipynb`
+
+- **Rol de la IA**: leer el notebook celda a celda, verificar las cifras ejecutando una réplica del pipeline (1 253 celdas únicas, 21 561 transiciones, % self-loops por mes), y redactar un documento que sustituya el placeholder previo (~20 líneas con campos "a completar") por una referencia operativa: input heredado de O1, pipeline en 3 pasos, cobertura mensual de las matrices, decisiones de diseño justificadas (resolución 0,5°, anclaje en `(lon_min, lat_min)`, formato disperso), limitaciones (self-loops dominantes del 64–90 %, cold start con 90 % de la rejilla nunca visitada, sin suavizado, matrices no persistidas) y próximos pasos sugeridos.
+- **Aportación propia**: encargo de mantener el mismo formato que `O1_datos.md`; aprobación de la lectura crítica de los self-loops como punto clave para la memoria (el modelo Markov es una baseline cuyo valor real se mide en días de migración, no en accuracy global).
+- **Validación**: ejecución programática del pipeline para confirmar transiciones, celdas únicas y porcentajes mensuales antes de incluirlos en el documento.
+- **Prompt clave** (`conversation_log.md`): `[2026-05-06 17:01]` "redacta O2_markov.md igual".
+
 ### O3 — Detección de comportamiento (HMM)
 
 #### HMM2 — corrección del bug de `lengths=` y rediseño
@@ -53,6 +62,14 @@ URL de la herramienta: `https://claude.com/claude-code`.
 
 - **Rol de la IA**: identificar que ML6 empeora respecto a ML5 a pesar de añadir viento ERA5 a 850 hPa, y articular la razón (el viento a esa presión no captura el viento efectivo a baja altitud).
 - **Aportación propia**: aceptar la conclusión negativa como resultado válido del TFG (ejemplo de "qué cambios empeoran y por qué" — el eje comparativo que pide la tutora).
+
+#### Curación de la línea ML — eliminación de ML1 y ML2
+
+- **Rol de la IA**: inventariar los 7 notebooks (ML0–ML6) y cruzar el contenido real con `docs/O4_ml.md` y `notebooks/O4_plan.md`; detectar dos hechos no reflejados en la documentación ("`ML0.ipynb` no aparece en `O4_ml.md` aunque ya existe el código" y "`ML1`/`ML2` quedan dominados por `ML3` porque `semana_num` única absorbe la señal de mes + día semana + fase lunar"); proponer en plan-mode tres niveles de poda (mínimo / conservador / agresivo) para que el alumno decida; ejecutar la opción mínima elegida (borrar `ML1`/`ML2`, conservar `ML0` + `ML3`–`ML6`); actualizar la documentación coherentemente (`docs/O4_ml.md`, `CLAUDE.md`) marcando con † las filas históricas y dejando los resultados de `ML1`/`ML2` como contexto.
+- **Aportación propia**: decisión final del alcance de la limpieza (rechazo deliberado de la opción agresiva para preservar la narrativa de evolución de features que pide la tutora — el TFG exige justificar qué cambios mejoran o empeoran y por qué); aprobación del borrado pese a haber modificaciones locales sin commitear en `ML1` (verificadas como ruido de re-ejecución, no como trabajo no salvado); validación de que la fila `ML0` se añade como "pendiente" sin inventar métricas.
+- **Validación**: `git diff notebooks/ML1.ipynb` antes de borrar para confirmar que las modificaciones locales eran solo timings + un accuracy estocástico de LightGBM (5 líneas cambiadas, ningún cambio de contenido); `ls notebooks/ML*.ipynb` tras el borrado muestra exactamente {ML0, ML3, ML4, ML5, ML6}; `grep` en `docs/O4_ml.md` y `CLAUDE.md` confirma que `ML1`/`ML2` solo aparecen marcados con † en la tabla histórica.
+- **Prompt clave** (`conversation_log.md`): `[2026-05-06 17:06]` "Creo que tengo demasiadas versiones de ML. Lee el documento O4_ml.md y dame qué candidatos conservar y cuáles puedo borrar.".
+- **Lección**: la documentación de evolución (`O4_ml.md`) puede sobrevivir al código que la generó. Para el TFG es preferible consolidar resultados en la tabla y eliminar notebooks redundantes (recuperables desde git) que mantener fuentes paralelas que se desincronizan.
 
 #### ML0 — corrección de OOM en `RandomizedSearchCV`
 

@@ -74,8 +74,9 @@ Deben ejecutarse en orden — cada uno alimenta al siguiente:
 2. `HMM.ipynb` → HMM original (referencia); produce `hmm.csv` con features de movimiento + etiqueta HMM + columnas Markov/ML
    - `HMM2.ipynb` → HMM mejorado (versión recomendada); produce `hmm2.csv` solo con step/bearing/turning/estado_hmm
 3. `markov1.ipynb` → construye 12 matrices de transición mensuales desde `aves_procesado_markov.csv`
-4. `ML1–ML5.ipynb` → entrenan clasificadores sobre `hmm.csv` para predecir `target_cell`
+4. `ML3–ML5.ipynb` → entrenan clasificadores sobre `hmm.csv` para predecir `target_cell` (ML1 y ML2 fueron eliminados; sus resultados quedan en la tabla de evolución como contexto)
 5. `ML6.ipynb` → igual que ML5 pero sobre `hmm_wind.csv`, añade 5 features de viento ERA5
+6. `ML0.ipynb` → línea paralela limpia sobre `hmm2.csv` con corrección de leakage (recalcula step/bearing como salto t-1 → t)
 
 Split **por animal**: primer 80% cronológico → train, último 20% → test. El `LabelEncoder` se ajusta solo sobre celdas de train; las filas de test con celdas no vistas se descartan.
 
@@ -153,14 +154,17 @@ El estado "migración" captura tanto **vuelos de larga distancia** (step > 100 k
 
 | Versión | Cambio principal | Migración Top-1 | Estacionario Top-1 | Global Top-1 |
 |---------|-----------------|-----------------|-------------------|--------------|
-| ML1 | Baseline: mes + día semana + fase lunar | — | — | 80.3% |
-| ML2 | Quita fase lunar | — | — | 80.8% |
+| ML1 † | Baseline: mes + día semana + fase lunar | — | — | 80.3% |
+| ML2 † | Quita fase lunar | — | — | 80.8% |
 | ML3 | Solo semana del año | 47.9% | 87.2% | 81.1% |
 | ML4 | Modelos separados por estado + lag-1 | 44.5% | 89.2% | 82.3% |
 | **ML5** | +lag-2, racha, episodio, dist. latitudinal, delta_bearing | **43.4%** | **89.8%** | **82.9%** |
 | ML6 | +viento ERA5 a 850 hPa (u, v, speed, tail, cross) | 41.6% | 88.4% | — |
+| ML0 | Baseline limpio sobre `hmm2.csv`, anti-leakage (12 features) | pendiente | pendiente | pendiente |
 
-**ML5 sigue siendo la mejor versión**. ML6 empeora respecto a ML5 a pesar de añadir viento ERA5 — resultado importante: el viento a 850 hPa no captura el viento efectivo que experimenta el ave a baja altitud. El análisis de la evolución ML3→ML6 es parte central del trabajo.
+† Notebook eliminado del repositorio el 2026-05-06 (ML3 los superó sin aportar señal). Los resultados se conservan como contexto histórico de la evolución; recuperables desde el historial de git.
+
+**ML5 sigue siendo la mejor versión de la línea histórica**. ML6 empeora respecto a ML5 a pesar de añadir viento ERA5 — resultado importante: el viento a 850 hPa no captura el viento efectivo que experimenta el ave a baja altitud. El análisis de la evolución ML3→ML6 es parte central del trabajo. ML0 es la nueva línea paralela limpia sobre `hmm2.csv` (pendiente de ejecución completa).
 
 ### Features de ML5 (18 en total)
 

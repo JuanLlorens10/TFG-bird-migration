@@ -888,3 +888,24 @@ Reescribió `docs/O1_datos.md` íntegramente a partir del contenido real del not
 ## [2026-05-06 17:00] Prompt
 commit and push
 
+### Resumen de respuesta
+Commit `0f42877` con `docs/O1_datos.md` (nuevo), `docs/IA_uso_registro.md` (nueva sección O1) y `conversation_log.md`. Push a `origin/main`. Resto de ficheros untracked (HMM4, ML0, modificaciones HMM2/ML1) excluidos por no pertenecer a esta unidad de trabajo.
+
+---
+
+## [2026-05-06 17:01] Prompt
+redacta O2_markov.md igual
+
+### Resumen de respuesta
+Reescribió `docs/O2_markov.md` íntegramente a partir del contenido real de `notebooks/markov1.ipynb` con verificación programática. Sustituyó la versión anterior (~20 líneas con campos "a completar") por documento de referencia con: (1) input heredado de O1; (2) pipeline con 3 pasos (rejilla 0,5° anclada en `(lon_min, lat_min)` = (7,72°, −2,41°), generación de 21 561 transiciones via `groupby('trayectoria_id').shift(-1)`, construcción de 12 matrices mensuales en formato disperso); (3) tabla con cobertura mensual (transiciones, transiciones únicas, % self-loops por mes — entre 64 % en septiembre y 90 % en enero/febrero); (4) decisiones de diseño justificadas (resolución 0,5°, 12 matrices vs 4 estacionales, formato disperso); (5) limitaciones para la memoria — dominancia de self-loops (~75 % anual fija un baseline trivial alto), sparsidad por origen, cold start (solo 1 253 de 12 240 celdas teóricas se visitan), ausencia de suavizado, matrices no persistidas; (6) próximos pasos sugeridos (persistencia, evaluación con split 80/20, comparación de resoluciones). Registrado en `IA_uso_registro.md` (sección O2).
+
+---
+
+## [2026-05-06 17:06] Prompt
+Creo que tengo demasiadas versiones de ML. Lee el documento O4_ml.md y dame qué candidatos conservar y cuáles puedo borrar.
+
+### Resumen de respuesta
+Inventario de los 7 notebooks ML existentes (ML0–ML6) cruzado con `docs/O4_ml.md` y `notebooks/O4_plan.md`. Detección de que `ML0.ipynb` (5 mayo, baseline limpio sobre `hmm2.csv` con anti-leakage) no aparecía en `O4_ml.md`, y de que `ML1.ipynb`/`ML2.ipynb` están dominados por `ML3.ipynb` (single-model con `semana_num` única los supera sin añadir features). Recomendación presentada como plan en plan-mode con tres niveles de poda; el usuario eligió el mínimo (borrar solo ML1 y ML2; conservar ML0 + ML3–ML6) y borrado definitivo con `git rm`. Ejecución: `git rm -f notebooks/ML1.ipynb notebooks/ML2.ipynb` (las modificaciones locales sin commitear de ML1 eran solo ruido de re-ejecución — accuracy estocástico de LightGBM y `ipykernel` temporal). Edición de `docs/O4_ml.md`: sección "Notebooks" reescrita para distinguir línea principal (ML3→ML6) de línea paralela limpia (ML0), tabla de evolución marca ML1/ML2 con † y nota al pie indicando eliminación, fila ML0 añadida como pendiente, nueva sección "Features de ML0 (12 en total)" con detalle de `grid_x/y, mes_num, sin/cos_mes, step_prev, sin/cos_bearing, veg_low/high, daylight_h, estado_hmm`. Edición de `CLAUDE.md`: pipeline de notebooks reescrito (ML3–ML5 sobre hmm.csv, ML6 sobre hmm_wind.csv, ML0 paralelo sobre hmm2.csv con nota explícita de la eliminación), tabla de evolución actualizada con misma marca † y fila ML0. Registro en `docs/IA_uso_registro.md` (sección O4) con la tarea de curación.
+
+---
+
