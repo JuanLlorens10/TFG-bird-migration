@@ -16,22 +16,21 @@ Identificar automáticamente si el ave está en reposo o en migración activa an
 | `HMM2.ipynb` | `hmm2.csv` | HMM2: versión recomendada (sin bug, 15 seeds, `cos(turn)`) |
 | `HMM3.ipynb` | `hmm3.csv` | HMM3: experimento — HMM2 + vegetación |
 | `HMM4.ipynb` | `hmm4.csv` | HMM4: experimento — HMM2 con 3 estados |
+| `HMM5.ipynb` | `hmm5.csv` | HMM5: experimento — HMM2 + vegetación + horas de luz |
 
-## Cuatro implementaciones comparadas
+## Cinco implementaciones comparadas
 
-| Aspecto | HMM1 (`HMM.ipynb`) | HMM2 (`HMM2.ipynb`) | HMM3 (`HMM3.ipynb`) | HMM4 (`HMM4.ipynb`) |
-|---|---|---|---|---|
-| Features | `step_length`, `turning_angle`, `veg_low`, `veg_high` | `step_length`, `cos(turn)` | `step_length`, `cos(turn)`, `veg_low`, `veg_high` | `step_length`, `cos(turn)` |
-| `n_components` | 2 | 2 | 2 | **3** |
-| Transformación | Ninguna | Ninguna | Ninguna | Ninguna |
-| `covariance_type` | `'diag'` | `'diag'` | `'diag'` | `'diag'` |
-| `lengths=` en `.fit()` | **No** — bug crítico | **Sí** | **Sí** | **Sí** |
-| Inicializaciones | 1 (`random_state=42`) | 15 seeds | 15 seeds | 15 seeds |
-| Asignación etiquetas | Manual post-hoc | Auto por `means_` (0/1) | Auto por `means_` (0/1) | Auto por `means_` (0/1/2) |
-| Validación | Sin análisis de dinámica | Completa | Completa + concordancia vs HMM2 | Completa + contingencia vs HMM2 |
-| Convención | 0=mig, 1=est | 0=mig, 1=est | 0=mig, 1=est | 0=mig real, 1=est, 2=commute |
+| Aspecto | HMM1 | HMM2 | HMM3 | HMM4 | HMM5 |
+|---|---|---|---|---|---|
+| Features | `step`, `turn`, `veg_low`, `veg_high` | `step`, `cos(turn)` | `step`, `cos(turn)`, `veg_low`, `veg_high` | `step`, `cos(turn)` | `step`, `cos(turn)`, `veg_low`, `veg_high`, `horas_luz` |
+| `n_components` | 2 | 2 | 2 | **3** | 2 |
+| `covariance_type` | `'diag'` | `'diag'` | `'diag'` | `'diag'` | `'diag'` |
+| `lengths=` en `.fit()` | **No** — bug | **Sí** | **Sí** | **Sí** | **Sí** |
+| Inicializaciones | 1 | 15 seeds | 15 seeds | 15 seeds | 15 seeds |
+| Asignación etiquetas | Manual | Auto por `means_` | Auto por `means_` | Auto por `means_` | Auto por `means_` |
+| Validación | Sin dinámica | Completa | + concordancia vs HMM2 | + contingencia vs HMM2 | + BIC/AIC + concordancia vs HMM2 |
 
-**HMM2 es la versión recomendada para la defensa** (respeta `n_components=2`). HMM3 y HMM4 son experimentos exploratorios con un único cambio respecto a HMM2.
+**HMM2 es la versión recomendada** (respeta `n_components=2`). HMM3, HMM4 y HMM5 son experimentos exploratorios, cada uno con un único cambio controlado respecto a HMM2.
 
 ---
 
@@ -101,6 +100,44 @@ Las 15 seeds convergen al mismo LL (`-98.614,3`, dispersión 0,0).
 | Mediana run-length estacionario | 4,0 días | 1,0 día | ❌ |
 
 **Conclusión HMM4**: 3 de 4 síntomas mejoran. Hallazgo inesperado: el commute cae al 84,4 % en `est(HMM2)`, no en `mig(HMM2)`. La frontera principal que añade el tercer estado está entre quietud casi total (≪ 1 km) y movimiento leve (~10 km). Detalles completos en `notebooks/HMM2_plan.md` (Fase 7).
+
+---
+
+## Experimento HMM5: ¿añadir vegetación + horas de luz mejora?
+
+**Hipótesis**: la fotoperiodía es un disparador conocido del comportamiento migratorio; en latitudes altas el sol de medianoche permite vuelos prolongados y en invierno boreal los días cortos limitan la actividad. Si la fotoperiodía discrimina estados, debería aparecer una diferencia clara en la media de `horas_luz` entre migración y estacionario.
+
+`horas_luz` se calcula con la fórmula astronómica de Spencer (1971) a partir de `lat` y `day_of_year`, con clipping para sol de medianoche (24 h) y noche polar (0 h). Larus fuscus alcanza ~80° N en verano, donde el clipping es relevante.
+
+### Resultados HMM5 vs HMM2 vs HMM3 (n = 21 081 días)
+
+| Métrica | HMM2 | HMM3 | **HMM5** |
+|---|---|---|---|
+| LL (train) | −113 068,9 | −121 642,2 | **−171 351,2** |
+| nº parámetros | 11 | 19 | 23 |
+| **BIC** | **226 247** ✅ | 243 474 | 342 931 |
+| **AIC** | **226 160** ✅ | 243 322 | 342 748 |
+| % días migración | 26,1 % | 21,9 % | 14,4 % |
+| Media step migración (km) | 129,6 | 125,8 | 176,2 |
+| Media step estacionario (km) | 4,1 | 4,0 | 6,2 |
+| Persistencia est diag | 0,917 | 0,917 | 0,960 |
+| Duración media est (días) | 12,1 | 12,0 | 24,7 |
+| Concordancia con HMM2 | 100 % | 94,5 % | **86,4 %** |
+| Media `horas_luz` migración | — | — | 12,43 h |
+| Media `horas_luz` estacionario | — | — | 13,26 h |
+| **Δ `horas_luz` mig − est** | — | — | **−0,83 h** |
+
+**ΔBIC(HMM5 − HMM2) = +116 684**. HMM5 empeora por márgenes enormes.
+
+### Interpretación
+
+1. **El LL empeora** aunque HMM5 tiene más parámetros. Motivo: el Gaussian diagonal no captura bien la forma de las nuevas features (`veg_low/veg_high` con masa concentrada en 0; `horas_luz` con patrón estacional bimodal). El coste en log-verosimilitud por dimensión supera cualquier ganancia de discriminación.
+
+2. **La fotoperiodía no discrimina estados**: Δ medias = 0,83 h, y la **mediana es prácticamente idéntica** (12,03 vs 12,06 h). La diferencia aparece solo en las colas, no en el centro de la distribución.
+
+3. **El modelo se desequilibra**: HMM5 solo asigna 14,4 % de días a migración (vs 26,1 % en HMM2) y reasigna 2 826 días, sobre todo mig→est en la franja 17–29 km de step. La duración media del estado estacionario sube a 24,7 días (irreal, doble de HMM2).
+
+**Conclusión HMM5**: añadir vegetación y horas de luz es **contraproducente** en este contexto. El experimento confirma con BIC/AIC y concordancia que `step_length` es el motor único de la separación y que HMM2 es la elección correcta.
 
 ---
 
