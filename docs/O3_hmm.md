@@ -226,3 +226,48 @@ A partir de esta decisión:
 - `data/processed/hmm5.csv` es la **fuente canónica del estado conductual** para el resto del TFG.
 - El pipeline ML downstream (ML0) debe usar `hmm5.csv` como entrada.
 - HMM2 se mantiene como referencia simplificada para la sección comparativa de la memoria.
+
+---
+
+## Por qué `horas_luz` cambia el modelo y `veg_low/veg_high` casi no — análisis del impacto por feature
+
+Una observación importante para la memoria: el salto HMM2 → HMM3 añade **dos features** (`veg_low`, `veg_high`) y casi no modifica el modelo (99 % de concordancia, 212 días reclasificados); el salto HMM3 → HMM5 añade **una sola feature** (`horas_luz`) y produce ~1 776 reclasificaciones (8× más que las dos variables de vegetación juntas). Y sin embargo, el gráfico Cohen's d en HMM5 marca `veg_high` como aparentemente más influyente que `horas_luz`. Esta aparente paradoja tiene una explicación directa.
+
+### Cohen's d en el gráfico ≠ influencia causal sobre la clasificación
+
+El gráfico de Cohen's d se calcula **sobre la clasificación final de HMM5**: dado el etiquetado resultante, mide qué tan distintas son las medias de cada feature entre estados. Es una métrica del *resultado*, no de la *causa*.
+
+La prueba directa es comparar Cohen's d de `veg_high` antes y después de añadir `horas_luz`:
+
+| Modelo | veg_high mig | veg_high est | Cohen's d veg_high |
+|---|---|---|---|
+| **HMM3** (sin horas_luz) | 0,33 | 0,33 | **≈ 0** |
+| **HMM5** (con horas_luz) | 0,22 | 0,35 | **−0,41** |
+
+En HMM3, `veg_high` no discriminaba absolutamente nada entre estados — las medias eran idénticas. Pasa de Cohen's d ≈ 0 a −0,41 en HMM5 sin que se haya tocado `veg_high`: lo único que cambió fue añadir `horas_luz`. El "poder discriminativo" aparente de `veg_high` en HMM5 es un **artefacto inducido**: cuando `horas_luz` reclasifica los ~1 776 días dudosos (mayoritariamente commutes de verano en colonia), esos días resultan tener distribuciones distintas de vegetación (los commutes en colonia tienen `veg_high` alto; los vuelos de migración real, más bajo). La vegetación se limita a *correlacionar* con la nueva clasificación, no la causa.
+
+Lo simétrico ocurre con `veg_low`: en HMM3 tenía Cohen's d ≈ −0,24 (pequeño pero real); en HMM5 cae a −0,09 (mínimo). Su poder discriminativo se *diluye* porque la clasificación nueva no se alinea bien con `veg_low`.
+
+### Tres razones del impacto real de `horas_luz`
+
+1. **Estructura calendárica que la vegetación no tiene**. `horas_luz` es esencialmente función de `lat × día_del_año`: 17–21 h en verano boreal alto, 9–12 h en invierno, 11–14 h en latitudes medias en primavera/otoño. Esa estructura está directamente alineada con el comportamiento real (cría en verano = estacionario, migración en primavera/otoño, invernada = estacionario). `veg_low/veg_high` son features espaciales sin estructura temporal sistemática — un día con alta vegetación puede ser commute, migración o reposo en hábitats variados.
+
+2. **Alineación con la zona de confusión de `step_length`**. HMM2 confunde sistemáticamente días con `step_length` de 15-30 km (73 % los etiqueta migración cuando la mayoría son commute). Resulta que **muchos de esos días confundidos son commutes de verano desde colonia** (lat 60-70°N, `horas_luz` = 17-21 h): exactamente donde `horas_luz` es más informativa. La vegetación no se concentra en esa zona — un valor alto de `veg_high` ocurre tanto en bosques de paso migratorio como en colonias de cría —, así que no aporta poder de desambiguación.
+
+3. **Varianza absoluta y *leverage* en el Gaussiano**. Aunque Cohen's d ya normaliza por σ, los valores extremos producen penalizaciones cuadráticas:
+
+| Feature | σ | Rango típico | *Leverage* máximo (Δ/σ)² |
+|---|---|---|---|
+| `veg_high` | 0,36 | [0, 1] | (0,7/0,36)² ≈ 3,8 |
+| `horas_luz` | 2,55 | [8, 21] h | (10/2,55)² ≈ 15,4 |
+
+Los extremos de `horas_luz` (sol de medianoche en cría boreal, días cortos en invernada subtropical) generan penalizaciones de Mahalanobis hasta ~4× más fuertes que los extremos de vegetación. Esos extremos anclan los días correspondientes al estado estacionario con mucha autoridad. La vegetación, con rango más estrecho y sin valores extremos sistemáticos, no tiene este efecto de anclaje.
+
+### Lectura para la memoria
+
+Lo que el gráfico de Cohen's d en HMM5 muestra **no es** "veg_high contribuyó más a la clasificación que horas_luz". Lo que muestra es "tras la clasificación final, las medias marginales de `veg_high` están ligeramente más separadas entre estados que las de `horas_luz`". Son métricas distintas:
+
+- **Cohen's d post-hoc** = qué tan distintas son las distribuciones marginales **dado** el etiquetado final.
+- **Influencia causal** = qué feature movió la frontera de decisión.
+
+La feature que **causó** el reordenamiento de etiquetas fue `horas_luz`; la vegetación se limitó a correlacionar con esa nueva clasificación. Esto explica por qué dos features de vegetación apenas modifican el modelo (HMM2 → HMM3, 99 % concordancia) mientras una sola feature de fotoperiodía reclasifica el 8 % de los días (HMM3 → HMM5).
