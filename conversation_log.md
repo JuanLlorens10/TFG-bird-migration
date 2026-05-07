@@ -1011,3 +1011,12 @@ actualiza O3_hmm.md y IA_uso_registro.md con la información relevante sobre HMM
 ## [2026-05-06 19:31] Prompt
 commit y push
 
+## [2026-05-06 19:34] Prompt
+Quiero saber por qué el cambio de HMM2 a HMM3 (cuando se incluye la cobertura vegetal) no modifica casi el modelo pero el cambio de HMM3 a HMM5 genera un gran cambio cuando realmente solo se ha añadido una variable más (horas_luz) y según la gráfica "influencia de cada feature en la clasificación del estado marca veg_high como más influyente que horas_luz.
+
+## [2026-05-07 00:44] Prompt
+Toda esta información es relevante para mi O3_hmm.md
+
+## [2026-05-07 00:46] Prompt
+commit y push
+
