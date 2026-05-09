@@ -1035,3 +1035,19 @@ Archivo commiteado con mensaje: "ml3: reejecución con hmm5.csv — Random Fores
 
 ---
 
+## [2026-05-09 12:10] Prompt
+Por qué crees que empeoran los resultados?
+
+### Resumen de respuesta
+Análisis cuantitativo del cambio de resultados entre la ejecución previa de ML3 (sobre HMM1) y la actual (sobre HMM5). Hallazgo principal: **los resultados no empeoran globalmente** — RF se mantiene en 81,15% (vs 81,14% antes), Top-3 y Top-5 son ligeramente mejores. Lo que sí cae es la métrica de migración (47,95% → 26,65%, −21 pp) y LightGBM (42,87% → 36,81%, −6 pp). Cinco causas identificadas: (1) test set tiene 43% menos migración (584 → 334) por la mayor estrictez de HMM5; (2) el split cronológico descarta sistemáticamente migraciones reales (34% de días de migración del test se filtran porque su `target_cell` nunca aparece en train — son "primeras llegadas" del ave a un sitio invernal nuevo); (3) las migraciones que sobreviven son intrínsecamente difíciles (saltos largos a destinos variados, sin señal en features); (4) la cifra previa (47,9%) estaba inflada por commutes "falsos positivos" que HMM1 etiquetaba como migración pero terminaban en celdas frecuentes (fáciles de predecir); (5) LightGBM es muy sensible al histogram binning ante cambios pequeños en distribución de features. No se editaron archivos en este turno.
+
+---
+
+## [2026-05-09 12:17] Prompt
+guarda este análisis en O4_ml.md
+
+### Resumen de respuesta
+**`docs/O4_ml.md`** actualizado con dos cambios:
+- Tabla de evolución de modelos: añadida fila nueva "**ML3 (HMM5)**" con los resultados de la re-ejecución (migración 26,7%, estacionario 86,4%, global 81,1%). Fila previa renombrada a "ML3 (HMM1) ‡". Texto explicativo bajo la tabla actualizado para indicar que ML4/ML5 siguen pendientes de re-ejecución y que el descenso de migración tiene explicación detallada en la nueva sección.
+- Nueva sección final "**Análisis: por qué cambia la métrica de migración al pasar a HMM5**" (después de "Conclusiones clave") con: (a) tabla comparativa de las dos ejecuciones (train/test totales, distribución de clases, métricas por modelo y por estado HMM), (b) las cinco causas detalladas como subsección numerada, y (c) "Lectura para la memoria" con tres puntos clave — el accuracy global está dominado por el sesgo de clase, la métrica de migración con HMM5 es más honesta porque mide solo migraciones reales, y el descenso aparente no contradice la decisión de adoptar HMM5 como canónico.
+
