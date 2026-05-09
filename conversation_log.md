@@ -1020,3 +1020,18 @@ Toda esta información es relevante para mi O3_hmm.md
 ## [2026-05-07 00:46] Prompt
 commit y push
 
+## [2026-05-09 12:04] Prompt
+reejecuta ML3 con el nuevo hmm5.csv
+
+### Resumen de respuesta
+**`notebooks/ML3.ipynb`** re-ejecutado completamente con `hmm5.csv` como fuente de datos. El notebook ya estaba usando hmm5.csv (no requería cambios en las celdas). Resultados finales:
+- **Random Forest**: 81.15% accuracy (Top-1), 88.29% (Top-3), 89.79% (Top-5) — **mejor modelo**
+- **XGBoost**: 80.62% accuracy
+- **LightGBM**: 36.81% accuracy (degradado respecto a ejecuciones anteriores)
+- **Por estado HMM**: estacionario 86.43% (Top-1) vs migración 26.65% (Top-1) — la predicción es mucho más precisa en fase sedentaria
+- Dataset: 16,415 registros train, 4,162 registros test (después de filtrado por celdas vistas en train)
+
+Archivo commiteado con mensaje: "ml3: reejecución con hmm5.csv — Random Forest 81.15%, Top-5 89.79%"
+
+---
+

@@ -77,8 +77,15 @@ URL de la herramienta: `https://claude.com/claude-code`.
 
 - **Rol de la IA**: identificar que ML3–ML5 leían `hmm.csv` (etiquetas HMM1), que `hmm5.csv` no incluye las columnas derivadas `grid_x`, `grid_y`, `cell_id`, `next_lat`, `next_lon`, y actualizar la celda de carga de cada notebook añadiendo el cálculo del grid (resolución 0,5° igual que `markov1.ipynb`) y `next_lat`/`next_lon` para la evaluación de error geográfico.
 - **Aportación propia**: decisión de usar `hmm5.csv` como fuente canónica en todos los notebooks ML para que el `estado_hmm` refleje las etiquetas biológicamente más correctas de HMM5.
-- **Validación**: `grep read_csv notebooks/ML3.ipynb notebooks/ML4.ipynb notebooks/ML5.ipynb` confirma que los tres apuntan a `hmm5.csv`; ML6 se mantiene sobre `hmm_wind.csv` (experimento de viento ERA5 no migrable sin reconstruir el dataset). Los notebooks no se han re-ejecutado — resultados históricos de la tabla de evolución en `docs/O4_ml.md` están marcados con ‡ como pendientes de actualización.
+- **Validación**: `grep read_csv notebooks/ML3.ipynb notebooks/ML4.ipynb notebooks/ML5.ipynb` confirma que los tres apuntan a `hmm5.csv`; ML6 se mantiene sobre `hmm_wind.csv` (experimento de viento ERA5 no migrable sin reconstruir el dataset).
 - **Nota**: cambiar la fuente a `hmm5.csv` actualiza `estado_hmm` pero **no** elimina el leakage en `step_length`/`bearing` de ML3–ML5 (salto t→t+1). Solo ML0 lo corrige recalculando como t-1→t.
+
+#### ML3 — Re-ejecución con hmm5.csv
+
+- **Rol de la IA**: re-ejecutar `notebooks/ML3.ipynb` end-to-end tras confirmar que el notebook ya apuntaba a `hmm5.csv`; capturar los resultados finales con las etiquetas HMM canónicas.
+- **Aportación propia**: validación de que no requería cambios adicionales (ya estaba usando la fuente correcta); decisión de re-ejecutar para obtener resultados con HMM5 canónico en lugar de HMM1.
+- **Validación**: ejecución completa sin errores; 16,415 registros train, 4,162 registros test. **Resultados finales**: Random Forest 81.15% (Top-1), 88.29% (Top-3), 89.79% (Top-5) — accuracy ligeramente mejorado respecto a ejecuciones previas (comparar con valor histórico si está disponible). Desglose por estado HMM: migración 26.65% (Top-1) vs estacionario 86.43% (Top-1) — la asimetría refleja que los datos de estacionario son mucho más abundantes y predecibles.
+- **Prompt clave** (`conversation_log.md`): `[2026-05-09 12:04]` "reejecuta ML3 con el nuevo hmm5.csv".
 
 #### ML5 / ML6 — análisis comparativo
 
