@@ -109,7 +109,21 @@ URL de la herramienta: `https://claude.com/claude-code`.
   - `[2026-05-04 20:43]` "No puedo ejecutar ML0 sin que se me cierre la sesión. Corrígelo".
 - **Lección**: replicar el patrón ya documentado en ML1 (`n_jobs=1, "USAR SOLO 1 NÚCLEO AQUÍ TAMBIÉN"`) — la línea ML existente había aprendido este límite y ML0 lo había olvidado al rediseñarse.
 
-### Estructura del proyecto
+### O5 — Módulo de visualización
+
+#### Implementación inicial de `notebooks/VIZ.ipynb`
+
+- **Rol de la IA**: diseño completo del notebook tomando como referencia la celda de carga, split y entrenamiento de `ML3.ipynb` para garantizar que la visualización refleja el modelo canónico (Random Forest sobre `hmm5.csv`); implementación de la función `cell_to_center` que invierte la fórmula del grid 0,5° usado en O2/O4 para recuperar el centroide geográfico de cualquier `cell_id`; cálculo del error haversine entre la celda predicha y la posición real `next_lat/next_lon`; construcción de los mapas Folium por animal (capas de ruta real, predicción, marcadores diarios con tooltip, líneas de error) y del heatmap global con muestra de marcadores aciertos/fallos; gráficos Plotly de distribución (histograma, CDF, boxplot mensual) con `include_plotlyjs='cdn'` para mantener tamaño bajo; instalación de `folium 0.20` y `plotly 6.7` en `tfg_env/`.
+- **Aportación propia**: encargo de seguir la línea ML3 con HMM5 canónico (no inventar un modelo nuevo para visualizar — la visualización debe reflejar el resultado oficial del TFG, no un experimento aparte); aprobación de la separación entre **error_km** (centroide predicho ↔ posición real) y **error_celda_km** (centroide predicho ↔ centroide real) para distinguir error del modelo del error intrínseco de la rejilla.
+- **Validación**: la celda 4 reproduce **Top-1 = 81,15 %** exactamente igual que `ML3.ipynb` re-ejecutado el 2026-05-09 → confirma que el split y el modelo son idénticos; los 7 archivos HTML se generan correctamente y abren en navegador (`mapa_91916A.html` 872 KB, `mapa_global_error.html` 708 KB, los 3 Plotly entre 50–100 KB); inspección manual de los outputs intermedios (filas 0–4 del DataFrame muestran valores razonables: error 12–122 km en estacionario).
+- **Prompt clave** (`conversation_log.md`): `[2026-05-09 12:24]` "Sí, hazlo, usando como referencia ML3 con hmm5.csv".
+- **Decisiones de diseño justificables ante el tribunal**:
+  1. **Reentrenar el modelo dentro del notebook** en lugar de cargar predicciones serializadas → el notebook es auto-contenido y reproducible; los resultados se actualizan automáticamente si cambia `hmm5.csv` o `ML3.ipynb`.
+  2. **Centroide de la celda como ancla de la predicción** → la rejilla 0,5° es la unidad espacial del modelo; usar el centroide es la única opción consistente con la salida real (no se puede pedir al RF que prediga lat/lon continuos sin reentrenarlo como regresor).
+  3. **Tres animales seleccionados por cantidad de migración** → maximiza la información visual del caso difícil (el estacionario se ve bien con cualquier animal; la migración solo es interesante cuando hay días suficientes).
+  4. **HTML con `include_plotlyjs='cdn'`** → archivos de ~50 KB en lugar de ~5 MB; coste a cambio de requerir conexión para visualizarlos (aceptable para un anexo entregable).
+
+
 
 #### Reorganización de la documentación (CLAUDE.md → docs/)
 
